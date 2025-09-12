@@ -1,0 +1,7 @@
+name = "NNFoil"
+uuid = "5d96e3f7-5e7b-44ae-828e-526bf7f0e78d"
+authors = ["Gabriel B. dos Santos <gabriel.bertacco@unesp.br>"]
+version = "0.0.1"
+
+[compat]
+julia = "1.10"
