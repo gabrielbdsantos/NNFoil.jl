@@ -3,5 +3,11 @@ uuid = "5d96e3f7-5e7b-44ae-828e-526bf7f0e78d"
 authors = ["Gabriel B. dos Santos <gabriel.bertacco@unesp.br>"]
 version = "0.0.1"
 
+[deps]
+LsqFit = "2fda8390-95c7-5789-9bda-21331edee243"
+NPZ = "15e1cf62-19b3-5cfa-8e77-841668bca605"
+
 [compat]
+LsqFit = "0.15.1"
+NPZ = "0.4.3"
 julia = "1.10"

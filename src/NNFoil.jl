@@ -1,5 +1,11 @@
 module NNFoil
 
-# Write your package code here.
+import NPZ
+import LsqFit
+
+const DATA_PATH = joinpath(@__DIR__, "..", "data")
+
+include("types.jl")
+include("kulfan.jl")
 
 end
