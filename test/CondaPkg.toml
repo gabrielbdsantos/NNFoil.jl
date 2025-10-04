@@ -1,0 +1,3 @@
+
+[pip.deps]
+aerosandbox = "==4.2.8"
