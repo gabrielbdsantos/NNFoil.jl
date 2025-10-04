@@ -12,7 +12,7 @@ This is a partial Julia translation of
 been thoroughly tested against the original Python package using a database of
 more than 1600 airfoil samples to ensure a consistent implementation. See this
 [issue](https://github.com/byuflowlab/NeuralFoil.jl/issues/5) for more
-information.
+information on how NNFoil.jl differs from NeuralFoil.jl.
 
 
 ## Citing NeuralFoil
