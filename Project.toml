@@ -1,7 +1,7 @@
 name = "NNFoil"
 uuid = "5d96e3f7-5e7b-44ae-828e-526bf7f0e78d"
 authors = ["Gabriel B. dos Santos <gabriel.bertacco@unesp.br>"]
-version = "0.0.1"
+version = "0.1.0"
 
 [deps]
 LsqFit = "2fda8390-95c7-5789-9bda-21331edee243"
