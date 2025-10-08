@@ -1,7 +1,7 @@
 """
     KulfanParameters{T,V}
 
-Parameter container for the *Kulfan* (CST) airfoil shape formulation.
+Parameter container for the Kulfan (CST) airfoil shape parameterization.
 
 This type stores the upper and lower Bernstein polynomial weights, along with
 leading-edge and trailing-edge scalar parameters, all sharing a common
@@ -61,10 +61,11 @@ function KulfanParameters(
     )
 end
 
+
 """
     NeuralNetworkParameters{R, V, M, W, B}
 
-Stores all parameters of the pretrained neural network model.
+Stores parameters of the pretrained neural network model.
 
 # Type Parameters
 - `R<:Real`: numeric type used for all elements.
@@ -81,11 +82,11 @@ Stores all parameters of the pretrained neural network model.
 - `biases::B`: vector of bias vectors for each layer.
 """
 @kwdef struct NeuralNetworkParameters{
-        R <: Real,
-        V <: AbstractVector{R},
-        M <: AbstractMatrix{R},
-        W <: AbstractVector{M},
-        B <: AbstractVector{V}
+    R <: Real,
+    V <: AbstractVector{R},
+    M <: AbstractMatrix{R},
+    W <: AbstractVector{M},
+    B <: AbstractVector{V}
 }
     mean_inputs_scaled::V
     cov_inputs_scaled::M
@@ -94,10 +95,11 @@ Stores all parameters of the pretrained neural network model.
     biases::B
 end
 
+
 """
     NeuralNetworkOutput{V}
 
-Stores the outputs predicted by the neural network.
+Stores the aerodynamic coefficients predicted by the neural network.
 
 # Type Parameters
 - `V<:AbstractVector{<:Real}`: numeric vector type used for all output quantities.

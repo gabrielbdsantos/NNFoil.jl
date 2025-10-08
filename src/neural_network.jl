@@ -24,10 +24,9 @@ function load_network_parameters(; model_size = :xlarge, T = Float64)
         [convert.(T, network_parameters["net.$(id).weight"])
          for id in 0:2:(length(network_parameters) - 2)],
         [convert.(T, network_parameters["net.$(id).bias"])
-         for id in 0:2:(length(network_parameters) - 2)],
+         for id in 0:2:(length(network_parameters) - 2)]
     )
 end
-
 
 """
     swish(x; beta=1)
@@ -41,10 +40,9 @@ Apply the Swish activation function elementwise.
 # Returns
 - Scalar or Array of the same shape as `x`: Activated values.
 """
-@inline function swish(x; beta=1)
+@inline function swish(x; beta = 1)
     return @. x / (1 + exp(-beta * x))
 end
-
 
 """
     sigmoid(x::T; ln_eps=log(10 / floatmax(eltype(T)))) where {T}
@@ -60,11 +58,10 @@ numerical stability.
 # Returns
 - Scalar or Array of the same shape as `x`: Values in the range (0, 1).
 """
-@inline function sigmoid(x::T; ln_eps=log(10 / floatmax(eltype(T)))) where {T}
+@inline function sigmoid(x::T; ln_eps = log(10 / floatmax(eltype(T)))) where {T}
     x_clipped = clamp.(x, ln_eps, -ln_eps)
     return 1 ./ (1 .+ exp.(-x_clipped))
 end
-
 
 """
     squared_mahalanobis_distance(network_parameters::NetworkParameters,
@@ -76,19 +73,17 @@ scaled input distribution.
 # Arguments
 - `network_parameters::NetworkParameters`: pretrained neural network parameters containing
     the mean and inverse covariance of the scaled input distribution.
-- `x::AbstractMatrix{<:Real}`: Input samples.
+- `x::AbstractArray{<:Real}`: Input samples.
 
 # Returns
-- `AbstractMatrix{<:Real}`
+- `AbstractArray{<:Real}`
 """
-function squared_mahalanobis_distance(
-        network_parameters::NeuralNetworkParameters, x::T) where {T <: AbstractMatrix{<:Real}}
+function squared_mahalanobis_distance(network_parameters::NeuralNetworkParameters,
+        x::T) where {T <: AbstractArray{<:Real}}
     x_minus_mean = (x .- network_parameters.mean_inputs_scaled)'
 
     return sum(
-        (x_minus_mean * network_parameters.inv_cov_inputs_scaled) .* x_minus_mean;
-        dims=2
-    )
+        (x_minus_mean * network_parameters.inv_cov_inputs_scaled) .* x_minus_mean; dims = 2)
 end
 
 """
@@ -98,12 +93,12 @@ Evaluate the neural network using the pretrained network parameters on the given
 
 # Arguments
 - `network_parameters::NetworkParameters`: pretrained network weights and biases.
-- `x::AbstractMatrix{<:Real}`: Input data.
+- `x::AbstractArray{<:Real}`: Input data.
 
 # Returns
 - `AbstractMatrix{<:Real}`
 """
-function net(network_parameters::NeuralNetworkParameters, x::AbstractMatrix{<:Real})
+function net(network_parameters::NeuralNetworkParameters, x::AbstractArray{<:Real})
     weights = network_parameters.weights
     biases = network_parameters.biases
 
@@ -118,82 +113,72 @@ function net(network_parameters::NeuralNetworkParameters, x::AbstractMatrix{<:Re
     return x
 end
 
-
 """
-    get_aero_from_kulfan_parameters(
-        network_parameters::NetworkParameters,
-        kulfan_parameters::KulfanParameters,
-        alpha::AbstractVector{<:Real},
-        Reynolds::AbstractVector{<:Real};
-        n_crit=9,
-        xtr_upper=1,
-        xtr_lower=1
-    )
+    __flip_x!(x)
 
-Compute aerodynamic coefficients from Kulfan parameters using a pretrained neural
-network model.
+Flip the input vector or matrix `x` in-place, creating a geometrically mirrored
+version of the input features.
 
 # Arguments
-- `network_parameters::NetworkParameters`: Pretrained neural network parameters.
-- `kulfan_parameters::KulfanParameters`: Kulfan shape parameters describing the airfoil.
-- `alpha::AbstractVector{<:Real}`: Angles of attack in degrees.
-- `Reynolds::AbstractVector{<:Real}`: Reynolds numbers corresponding to each `alpha`.
-- `n_crit::Real=9`: Critical amplification factor for transition prediction.
-- `xtr_upper::Real=1`: Forced transition location on the upper surface.
-- `xtr_lower::Real=1`: Forced transition location on the lower surface.
+- `x::AbstractMatrix{<:Real}`: Input matrix where each column represents a
+    sample. The flipping is applied across specific rows.
 
 # Returns
-- `NeuralNetworkOutput`: Predicted aerodynamic coefficients.
+- `x`: The modified input matrix, flipped in-place.
 """
-function get_aero_from_kulfan_parameters(
-        network_parameters::NeuralNetworkParameters,
-        kulfan_parameters::KulfanParameters,
-        alpha::T,
-        Reynolds::T,
-        ;
-        n_crit = 9,
-        xtr_upper = 1,
-        xtr_lower = 1,
-) where {
-        T <: AbstractVector{<:Real},
-}
-    @assert size(alpha) == size(Reynolds)
+function __flip_x!(x::T) where {T <: AbstractMatrix{<:Real}}
+    @inbounds for i in axes(x, 2)
+        for j in 1:8
+            x[j, i], x[(8 + j), i] = -x[(8 + j), i], -x[j, i]
+        end
 
-    x = stack([[kulfan_parameters.upper_weights
-                kulfan_parameters.lower_weights
-                kulfan_parameters.leading_edge_weight
-                kulfan_parameters.trailing_edge_thickness * 50.0
-                sind(2.0 * angle)
-                cosd(angle)
-                1.0 - cosd(angle)^2
-                (log(reynolds) - 12.5) / 3.5
-                (n_crit .- 9.0) / 4.5
-                xtr_upper
-                xtr_lower] for (angle, reynolds) in zip(alpha, Reynolds)])
+        x[17, i] *= -1
+        x[19, i] *= -1
+        x[(end - 1), i], x[end, i] = x[end, i], x[(end - 1), i]
+    end
 
-    x_flipped = stack([[-kulfan_parameters.lower_weights
-                        -kulfan_parameters.upper_weights
-                        -kulfan_parameters.leading_edge_weight
-                        kulfan_parameters.trailing_edge_thickness * 50.0
-                        -sind(2.0 * angle)
-                        cosd(angle)
-                        1.0 - cosd(angle)^2
-                        (log(reynolds) - 12.5) / 3.5
-                        (n_crit .- 9.0) / 4.5
-                        xtr_lower
-                        xtr_upper] for (angle, reynolds) in zip(alpha, Reynolds)])
+    return x
+end
 
+"""
+    __evaluate_aero(network_parameters, x) -> NeuralNetworkOutput
 
+Evaluate the neural network for an input `x` using the pretrained parameters
+`network_parameters`, performing symmetry fusion and applying post-processing
+transformations to produce physically meaningful aerodynamic coefficients.
+
+# Arguments
+- `network_parameters`: Pretrained parameters of the neural network.
+- `x::AbstractMatrix`: Input features for the original flow condition. Each
+    column corresponds to one input sample.
+
+# Returns
+A `NeuralNetworkOutput` struct with fields:
+- `analysis_confidence`: confidence level (0--1)
+- `CL`: lift coefficient
+- `CD`: drag coefficient
+- `CM`: moment coefficient
+- `Top_Xtr`: upper-surface transition location (0--1)
+- `Bot_Xtr`: lower-surface transition location (0--1)
+
+!!! note
+    Currently, boundary-layer related outputs are not supported. These are
+    planned to be included in a future version.
+"""
+function __evaluate_aero(network_parameters, x)
     y = net(network_parameters, x)
-    y_flipped = net(network_parameters, x_flipped)
-
     y[1, :] .-= (
         squared_mahalanobis_distance(network_parameters, x)
         ./ (2.0 * size(x, 1))
     )
+
+    x_flipped = __flip_x!(copy(x))
+
+    y_flipped = net(network_parameters, x_flipped)
     y_flipped[1, :] .-= (
         squared_mahalanobis_distance(network_parameters, x_flipped)
-        ./ (2.0 * size(x, 1))
+        ./
+        (2.0 * size(x_flipped, 1))
     )
 
     # Temporary variable
@@ -236,64 +221,117 @@ function get_aero_from_kulfan_parameters(
     )
 end
 
-
-function get_aero_from_kulfan_parameters(
-        network_parameters::NeuralNetworkParameters,
-        kulfan_parameters::KulfanParameters,
-        alpha::T,
-        Reynolds::T,
-        ;
-        n_crit = 9,
-        xtr_upper = 1,
-        xtr_lower = 1,
-) where {T <: Real}
-    get_aero_from_kulfan_parameters(
-        network_parameters, kulfan_parameters, [alpha], [Reynolds];
-        n_crit, xtr_upper, xtr_lower)
-end
-
-
 """
     get_aero_from_kulfan_parameters(
-        kulfan_parameters::KulfanParameters,
-        alpha::AbstractVector{<:Real},
-        Reynolds::AbstractVector{<:Real};
+        network_parameters,
+        kulfan_parameters,
+        alpha,
+        Reynolds;
         n_crit=9,
         xtr_upper=1,
-        xtr_lower=1,
-        model_size=:xlarge
-    )
+        xtr_lower=1
+    ) -> NeuralNetworkOutput
 
-Compute aerodynamic coefficients from Kulfan parameters using a pretrained neural
-network model.
+Compute aerodynamic coefficients from Kulfan airfoil parameters using a
+pretrained neural network.
+
+This function supports scalar and vector inputs for both the angle of attack
+`alpha` and the `Reynolds` number. If either is a scalar while the other is a
+vector, the scalar will be broadcasted to match the length of the vector.
 
 # Arguments
+- `network_parameters::NeuralNetworkParameters`: Pretrained neural network parameters.
 - `kulfan_parameters::KulfanParameters`: Kulfan shape parameters describing the airfoil.
-- `alpha::AbstractVector{<:Real}`: Angles of attack in degrees.
-- `Reynolds::AbstractVector{<:Real}`: Reynolds numbers corresponding to each `alpha`.
+- `alpha`: Angle(s) of attack in degrees (`Real` or `AbstractVector{<:Real}`).
+- `Reynolds`: Reynolds number(s) corresponding to each `alpha` (`Real` or `AbstractVector{<:Real}`).
 - `n_crit::Real=9`: Critical amplification factor for transition prediction.
 - `xtr_upper::Real=1`: Forced transition location on the upper surface.
 - `xtr_lower::Real=1`: Forced transition location on the lower surface.
-- `model_size::Symbol=:xlarge`: Size of the pretrained model parameters to load.
 
 # Returns
 - `NeuralNetworkOutput`: Predicted aerodynamic coefficients.
 """
 function get_aero_from_kulfan_parameters(
+        network_parameters::NeuralNetworkParameters,
+        kulfan_parameters::KulfanParameters,
+        alpha::Ta,
+        Reynolds::Tb,
+        ;
+        n_crit = 9,
+        xtr_upper = 1,
+        xtr_lower = 1
+) where {Ta <: AbstractVector{<:Real}, Tb <: AbstractVector{<:Real}}
+    L = length(alpha)
+    x = vcat(
+        repeat(kulfan_parameters.upper_weights, outer = (1, L)),
+        repeat(kulfan_parameters.lower_weights, outer = (1, L)),
+        fill(kulfan_parameters.leading_edge_weight, (1, L)),
+        fill(kulfan_parameters.trailing_edge_thickness * 50, (1, L)),
+        sind.(2 .* alpha'),
+        cosd.(alpha'),
+        1 .- cosd.(alpha') .^ 2,
+        (log.(Reynolds') .- 12.5) ./ 3.5,
+        fill((n_crit - 9) / 4.5, (1, L)),
+        fill(xtr_upper, (1, L)),
+        fill(xtr_lower, (1, L))
+    )
+
+    return __evaluate_aero(network_parameters, x)
+end
+
+function get_aero_from_kulfan_parameters(
+        network_parameters::NeuralNetworkParameters,
+        kulfan_parameters::KulfanParameters,
+        alpha::Ta,
+        Reynolds::Tr,
+        ;
+        n_crit = 9,
+        xtr_upper = 1,
+        xtr_lower = 1
+) where {Ta <: Real, Tr <: Real}
+    x = [kulfan_parameters.upper_weights
+         kulfan_parameters.lower_weights
+         kulfan_parameters.leading_edge_weight
+         kulfan_parameters.trailing_edge_thickness * 50.0
+         sind(2.0 * alpha)
+         cosd(alpha)
+         1.0 - cosd(alpha)^2
+         (log(Reynolds) - 12.5) / 3.5
+         (n_crit - 9.0) / 4.5
+         xtr_upper
+         xtr_lower]
+
+    return __evaluate_aero(network_parameters, x)
+end
+
+function get_aero_from_kulfan_parameters(
+        network_parameters::NeuralNetworkParameters,
         kulfan_parameters::KulfanParameters,
         alpha::T,
+        Reynolds::R,
+        ;
+        n_crit = 9,
+        xtr_upper = 1,
+        xtr_lower = 1
+) where {T <: AbstractVector{<:Real}, R <: Real}
+    return get_aero_from_kulfan_parameters(
+        network_parameters, kulfan_parameters, alpha, fill(Reynolds, length(alpha));
+        n_crit, xtr_upper, xtr_lower
+    )
+end
+
+function get_aero_from_kulfan_parameters(
+        network_parameters::NeuralNetworkParameters,
+        kulfan_parameters::KulfanParameters,
+        alpha::R,
         Reynolds::T,
         ;
         n_crit = 9,
         xtr_upper = 1,
-        xtr_lower = 1,
-        model_size = :xlarge
-) where {
-        T <: AbstractVector{<:Real},
-}
-    network_parameters = load_network_parameters(; model_size = model_size)
-
+        xtr_lower = 1
+) where {T <: AbstractVector{<:Real}, R <: Real}
     return get_aero_from_kulfan_parameters(
-        network_parameters, kulfan_parameters, alpha, Reynolds;
-        n_crit = n_crit, xtr_upper = xtr_upper, xtr_lower = xtr_lower)
+        network_parameters, kulfan_parameters, fill(alpha, length(Reynolds)), Reynolds;
+        n_crit, xtr_upper, xtr_lower
+    )
 end
