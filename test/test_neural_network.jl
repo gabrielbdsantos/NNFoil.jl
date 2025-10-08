@@ -1,13 +1,14 @@
-const MODEL_PARAMS = NNFoil.load_network_parameters(; model_size=:xlarge)
+const MODEL_PARAMS = NNFoil.load_network_parameters(; model_size=MODEL_SIZE)
 const ALPHA = collect(-180.0:180.0)
-const RE_RANGE = 10 .^ range(3, 9, 15)
+const RE_RANGE = 10 .^ range(3, 9, NUM_REYNOLDS_VALUES)
 
 
 function py_network(kulfan, alpha, Reynolds)
     py_ans = py_get_aero_from_kulfan_parameters(
         kulfan_parameters=kulfan,
         alpha=alpha,
-        Re=Reynolds
+        Re=Reynolds,
+        model_size=string(MODEL_SIZE)
     )
 
     NNFoil.NeuralNetworkOutput(
@@ -34,7 +35,7 @@ end
 
 
 @testset "Neural Network ($database)" for database in readdir(AIRFOILS_DIR; join=true)
-    @testset "$filename" for filename in readdir(database)
+    @testset "$filename" for filename in select_cases(readdir(database))
         py_kulfan = py_get_kulfan_from_file(joinpath(database, filename))
         jl_kulfan = convert_kulfan_py2jl(py_kulfan)
 
@@ -45,7 +46,7 @@ end
 
 
 @testset "Workflow ($database)" for database in readdir(AIRFOILS_DIR; join=true)
-    @testset "$filename" for filename in readdir(database)
+    @testset "$filename" for filename in select_cases(readdir(database))
         coords = coordinates_from_file(joinpath(database, filename))
         py_kulfan = py_get_kulfan_from_coordinates(py_array(coords); normalize_coordinates=false)
         jl_kulfan = NNFoil.get_kulfan_parameters(coords)
