@@ -120,13 +120,13 @@ Flip the input vector or matrix `x` in-place, creating a geometrically mirrored
 version of the input features.
 
 # Arguments
-- `x::AbstractMatrix{<:Real}`: Input matrix where each column represents a
-    sample. The flipping is applied across specific rows.
+- `x::AbstractVecOrMat{<:Real}`: Input vector or matrix where each column
+    represents a sample. The flipping is applied across specific rows.
 
 # Returns
 - `x`: The modified input matrix, flipped in-place.
 """
-function __flip_x!(x::T) where {T <: AbstractMatrix{<:Real}}
+function __flip_x!(x::T) where {T <: AbstractVecOrMat{<:Real}}
     @inbounds for i in axes(x, 2)
         for j in 1:8
             x[j, i], x[(8 + j), i] = -x[(8 + j), i], -x[j, i]
@@ -323,13 +323,13 @@ end
 function get_aero_from_kulfan_parameters(
         network_parameters::NeuralNetworkParameters,
         kulfan_parameters::KulfanParameters,
-        alpha::R,
-        Reynolds::T,
+        alpha::T,
+        Reynolds::R,
         ;
         n_crit = 9,
         xtr_upper = 1,
         xtr_lower = 1
-) where {T <: AbstractVector{<:Real}, R <: Real}
+) where {T <: Real, R <: AbstractVector{<:Real}}
     return get_aero_from_kulfan_parameters(
         network_parameters, kulfan_parameters, fill(alpha, length(Reynolds)), Reynolds;
         n_crit, xtr_upper, xtr_lower
