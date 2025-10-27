@@ -80,10 +80,10 @@ scaled input distribution.
 """
 function squared_mahalanobis_distance(network_parameters::NeuralNetworkParameters,
         x::T) where {T <: AbstractArray{<:Real}}
-    x_minus_mean = (x .- network_parameters.mean_inputs_scaled)'
+    x_minus_mean = x .- network_parameters.mean_inputs_scaled
 
-    return sum(
-        (x_minus_mean * network_parameters.inv_cov_inputs_scaled) .* x_minus_mean; dims = 2)
+    return sum(x_minus_mean .* (network_parameters.inv_cov_inputs_scaled * x_minus_mean);
+        dims = 1)'
 end
 
 """
@@ -103,7 +103,7 @@ function net(network_parameters::NeuralNetworkParameters, x::AbstractArray{<:Rea
     biases = network_parameters.biases
 
     for (i, (W, b)) in enumerate(zip(weights, biases))
-        x = W * x .+ b
+        x = muladd(W, x, b)
 
         if i != length(weights)
             x = swish(x)
@@ -137,7 +137,7 @@ function __flip_x!(x::T) where {T <: AbstractVecOrMat{<:Real}}
         x[(end - 1), i], x[end, i] = x[end, i], x[(end - 1), i]
     end
 
-    return x
+    return nothing
 end
 
 """
@@ -167,51 +167,53 @@ A `NeuralNetworkOutput` struct with fields:
 """
 function __evaluate_aero(network_parameters, x)
     y = net(network_parameters, x)
-    y[1, :] .-= (
+    @views y[1, :] .-= (
         squared_mahalanobis_distance(network_parameters, x)
         ./ (2.0 * size(x, 1))
     )
 
-    x_flipped = __flip_x!(copy(x))
+    __flip_x!(x)
 
-    y_flipped = net(network_parameters, x_flipped)
-    y_flipped[1, :] .-= (
-        squared_mahalanobis_distance(network_parameters, x_flipped)
+    y_flipped = net(network_parameters, x)
+    @views y_flipped[1, :] .-= (
+        squared_mahalanobis_distance(network_parameters, x)
         ./
-        (2.0 * size(x_flipped, 1))
+        (2.0 * size(x, 1))
     )
 
     # Temporary variable
     tmp = y_flipped[6, :]
 
-    y_flipped[2, :] .= -y_flipped[2, :]
-    y_flipped[4, :] .= -y_flipped[4, :]
-    y_flipped[6, :] .= y_flipped[5, :]
-    y_flipped[5, :] .= tmp
+    @views begin
+        y_flipped[2, :] .= -y_flipped[2, :]
+        y_flipped[4, :] .= -y_flipped[4, :]
+        y_flipped[6, :] .= y_flipped[5, :]
+        y_flipped[5, :] .= tmp
 
-    # Average outputs
-    y_fused = @. (y + y_flipped) / 2.0
+        # Average outputs
+        y_fused = @. (y + y_flipped) / 2.0
 
-    # Analysis confidence
-    @. y_fused[1, :] = sigmoid(y_fused[1, :])
+        # Analysis confidence
+        @. y_fused[1, :] = sigmoid(y_fused[1, :])
 
-    # Lift coefficient
-    @. y_fused[2, :] = y_fused[2, :] / 2.0
+        # Lift coefficient
+        @. y_fused[2, :] = y_fused[2, :] / 2.0
 
-    # Drag coefficient
-    @. y_fused[3, :] = exp((y_fused[3, :] - 2) * 2)
+        # Drag coefficient
+        @. y_fused[3, :] = exp((y_fused[3, :] - 2) * 2)
 
-    # Moment coefficient
-    @. y_fused[4, :] = y_fused[4, :] / 20
+        # Moment coefficient
+        @. y_fused[4, :] = y_fused[4, :] / 20
 
-    # Top and bottom transitions
-    @. y_fused[5, :] = clamp(y_fused[5, :], 0, 1)
-    @. y_fused[6, :] = clamp(y_fused[6, :], 0, 1)
+        # Top and bottom transitions
+        @. y_fused[5, :] = clamp(y_fused[5, :], 0, 1)
+        @. y_fused[6, :] = clamp(y_fused[6, :], 0, 1)
+    end
 
     # TODO: support boundary layer outputs
     # ...
 
-    return NeuralNetworkOutput(
+    return @views NeuralNetworkOutput(
         analysis_confidence = y_fused[1, :],
         CL = y_fused[2, :],
         CD = y_fused[3, :],
