@@ -25,9 +25,7 @@ end
 function compare_networks(py_kulfan, jl_kulfan, alpha, ReRange, atol)
     @testset "Re = $Re" for Re in ReRange
         py_ans = py_network(py_kulfan, py_array(alpha), py_array(Re))
-        jl_ans = NNFoil.get_aero_from_kulfan_parameters(
-            MODEL_PARAMS, jl_kulfan, alpha, Re .* ones(size(alpha, 1))
-        )
+        jl_ans = NNFoil.evaluate(MODEL_PARAMS, jl_kulfan, alpha, Re)
 
         @test isapprox(py_ans, jl_ans; atol=atol)
     end
