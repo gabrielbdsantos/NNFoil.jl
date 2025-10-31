@@ -1,4 +1,4 @@
-const MODEL_PARAMS = NNFoil.load_network_parameters(; model_size=MODEL_SIZE)
+const MODEL_PARAMS = NNFoil.NeuralNetworkParameters(; model_size=MODEL_SIZE)
 const ALPHA = collect(-180.0:180.0)
 const RE_RANGE = 10 .^ range(3, 9, NUM_REYNOLDS_VALUES)
 

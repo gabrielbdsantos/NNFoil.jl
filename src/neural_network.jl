@@ -1,34 +1,4 @@
 """
-    load_network_parameters(; model_size=:xlarge, T=Float64)
-
-Load and convert the pretrained neural network parameters used by
-NeuralFoil.
-
-# Arguments
-- `model_size::Symbol=:xlarge`: Size of the pretrained model parameters to load.
-- `T::Type=Float64`: Numerical type to which all loaded arrays will be
-   converted.
-"""
-function load_network_parameters(; model_size = :xlarge, T = Float64)
-    scaled_input_distribution = NPZ.npzread(
-        joinpath(DATA_PATH, "scaled_input_distribution.npz")
-    )
-    network_parameters = NPZ.npzread(
-        joinpath(DATA_PATH, "nn-" * string(model_size) * ".npz")
-    )
-
-    return NeuralNetworkParameters(
-        convert.(T, scaled_input_distribution["mean_inputs_scaled"]),
-        convert.(T, scaled_input_distribution["cov_inputs_scaled"]),
-        convert.(T, scaled_input_distribution["inv_cov_inputs_scaled"]),
-        [convert.(T, network_parameters["net.$(id).weight"])
-         for id in 0:2:(length(network_parameters) - 2)],
-        [convert.(T, network_parameters["net.$(id).bias"])
-         for id in 0:2:(length(network_parameters) - 2)]
-    )
-end
-
-"""
     swish(x; beta=1)
 
 Apply the Swish activation function elementwise.
@@ -67,8 +37,8 @@ end
     squared_mahalanobis_distance(network_parameters::NetworkParameters,
         x::AbstractMatrix{<:Real})
 
-Compute the squared Mahalanobis distance between input samples and the mean of
-the scaled input distribution.
+Compute the squared Mahalanobis distance between the input array `x` and the
+mean of the scaled input distribution.
 
 # Arguments
 - `network_parameters::NetworkParameters`: pretrained neural network parameters

@@ -3,11 +3,6 @@
 
 Parameter container for the Kulfan (CST) airfoil shape parameterization.
 
-This type stores the upper and lower Bernstein polynomial weights, along with
-leading-edge and trailing-edge scalar parameters, all sharing a common
-floating-point element type `T`. The coordinate arrays are stored with a
-concrete vector type `V<:AbstractVector{T}` (e.g. `Vector{T}`, `SVector{N,T}`).
-
 # Type parameters
 - `T<:Real`: floating-point element type.
 - `V<:AbstractVector{T}`: concrete vector type used for the weight arrays.
@@ -25,12 +20,11 @@ concrete vector type `V<:AbstractVector{T}` (e.g. `Vector{T}`, `SVector{N,T}`).
     trailing_edge_thickness::T
 end
 
-
 """
     KulfanParameters(upper_weights, lower_weights, leading_edge_weight,
         trailing_edge_thickness)
 
-Converting constructor for `KulfanParameters` that **promotes** all inputs to a
+Alternative constructor for `KulfanParameters` that **promotes** all inputs to a
 common floating-point type `T` and returns a `KulfanParameters{T, V}` where `V`
 matches the concrete vector type of the provided weights arrays (after promotion).
 
@@ -61,11 +55,10 @@ function KulfanParameters(
     )
 end
 
-
 """
     NeuralNetworkParameters{R, V, M, W, B}
 
-Stores parameters of the pretrained neural network model.
+Stores the parameters of the pretrained neural network model.
 
 # Type Parameters
 - `R<:Real`: numeric type used for all elements.
@@ -81,7 +74,7 @@ Stores parameters of the pretrained neural network model.
 - `weights::W`: vector of weight matrices for each layer.
 - `biases::B`: vector of bias vectors for each layer.
 """
-@kwdef struct NeuralNetworkParameters{
+struct NeuralNetworkParameters{
     R <: Real,
     V <: AbstractVector{R},
     M <: AbstractMatrix{R},
@@ -95,6 +88,38 @@ Stores parameters of the pretrained neural network model.
     biases::B
 end
 
+"""
+    NeuralNetworkParameters(; model_size=:xlarge, T=Float64)
+
+Alternative constructor that loads and converts the pretrained neural network
+parameters.
+
+# Arguments
+- `model_size`: Size of the pretrained model parameters to load.
+- `T::Type`: Numerical type to which all loaded arrays will be
+    converted.
+
+# Returns
+- `NeuralNetworkParameters`
+"""
+function NeuralNetworkParameters(; model_size=:xlarge, T=Float64)
+    scaled_input_distribution = NPZ.npzread(
+        joinpath(DATA_PATH, "scaled_input_distribution.npz")
+    )
+    network_parameters = NPZ.npzread(
+        joinpath(DATA_PATH, "nn-" * string(model_size) * ".npz")
+    )
+
+    return NeuralNetworkParameters(
+        convert.(T, scaled_input_distribution["mean_inputs_scaled"]),
+        convert.(T, scaled_input_distribution["cov_inputs_scaled"]),
+        convert.(T, scaled_input_distribution["inv_cov_inputs_scaled"]),
+        [convert.(T, network_parameters["net.$(id).weight"])
+         for id in 0:2:(length(network_parameters) - 2)],
+        [convert.(T, network_parameters["net.$(id).bias"])
+         for id in 0:2:(length(network_parameters) - 2)]
+    )
+end
 
 """
     NeuralNetworkOutput{V}
