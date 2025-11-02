@@ -4,7 +4,7 @@
         py_ans = convert_kulfan_py2jl(
             py_get_kulfan_from_coordinates(py_array(coords); normalize_coordinates=false)
         )
-        jl_ans = NNFoil.get_kulfan_parameters(coords)
+        jl_ans = NNFoil.KulfanParameters(coords)
 
         # NOTE: an absolute tolerance of 1e-6 is enought to get consistent results out
         # of the neural network.

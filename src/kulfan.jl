@@ -1,4 +1,125 @@
 """
+    KulfanParameters{T,V}
+
+Parameter container for the Kulfan (CST) airfoil shape parameterization.
+
+# Type parameters
+- `T<:Real`: floating-point element type.
+- `V<:AbstractVector{T}`: concrete vector type used for the weight arrays.
+
+# Fields
+- `upper_weights::V`: weights for the *upper* surface (commonly length 8).
+- `lower_weights::V`: weights for the *lower* surface (commonly length 8).
+- `leading_edge_weight::T`: scalar parameter controlling leading-edge thickness/rounding.
+- `trailing_edge_thickness::T`: scalar trailing-edge thickness parameter.
+"""
+@kwdef struct KulfanParameters{T <: Real, V <: AbstractVector{T}}
+    upper_weights::V
+    lower_weights::V
+    leading_edge_weight::T
+    trailing_edge_thickness::T
+end
+
+"""
+    KulfanParameters(upper_weights, lower_weights, leading_edge_weight,
+        trailing_edge_thickness)
+
+Alternative constructor for `KulfanParameters` that **promotes** all inputs to a
+common floating-point type `T` and returns a `KulfanParameters{T, V}` where `V`
+matches the concrete vector type of the provided weights arrays (after promotion).
+
+# Arguments
+- `upper_weights::AbstractVector{<:Real}`: upper weights.
+- `lower_weights::AbstractVector{<:Real}`: lower weights.
+- `leading_edge_weight::Real`: LE scalar parameter.
+- `trailing_edge_thickness::Real`: TE thickness parameter.
+"""
+function KulfanParameters(
+        upper_weights::Vu,
+        lower_weights::Vl,
+        leading_edge_weight::Tl,
+        trailing_edge_thickness::Tt
+) where {
+        Vu <: AbstractVector{<:Real},
+        Vl <: AbstractVector{<:Real},
+        Tl <: Real,
+        Tt <: Real
+}
+    T = promote_type(eltype(Vu), eltype(Vl), Tt, Tl)
+
+    KulfanParameters(
+        convert.(T, upper_weights),
+        convert.(T, lower_weights),
+        convert(T, leading_edge_weight),
+        convert(T, trailing_edge_thickness)
+    )
+end
+
+"""
+    KulfanParameters(coordinates; num_coefficients=8, N1=0.5, N2=1.0)
+
+Fits Kulfan (CST) parameters to airfoil coordinates.
+
+# Arguments
+- `coordinates::AbstractMatrix`: Airfoil coordinates with columns `[x, y]`.
+- `num_coefficients::Int=8`: Number of Bernstein polynomial coefficients per surface.
+- `N1::Real=0.5`: Leading-edge exponent.
+- `N2::Real=1.0`: Trailing-edge exponent.
+
+# Returns
+- `KulfanParameters`: Fitted upper and lower weights, leading-edge weight, and
+    trailing-edge thickness
+"""
+function KulfanParameters(coordinates; num_coefficients = 8, N1 = 0.5, N2 = 1.0)
+    coords_upper, coords_lower = split_upper_lower_surfaces(coordinates)
+
+    x_upper = @view coords_upper[:, 1]
+    y_upper = @view coords_upper[:, 2]
+    x_lower = @view coords_lower[:, 1]
+    y_lower = @view coords_lower[:, 2]
+
+    trailing_edge_thickness = y_upper[1] - y_lower[end]
+
+    fit = LsqFit.curve_fit(
+        (x, y) -> airfoil_cst(x, y, length(x_upper); N1, N2),
+        [x_upper; x_lower],
+        [y_upper; y_lower],
+        [ones(2 * num_coefficients + 1); trailing_edge_thickness],
+        autodiff=:forwarddiff
+    )
+
+    if fit.param[end] < 0
+        fit = LsqFit.curve_fit(
+            (x, y) -> airfoil_cst_zero_trailing_edge(x, y, length(x_upper); N1, N2),
+            [x_upper; x_lower],
+            [y_upper; y_lower],
+            ones(2 * num_coefficients + 1),
+            autodiff=:forwarddiff
+        )
+
+        upper_weights = fit.param[1:num_coefficients]
+        lower_weights = fit.param[(num_coefficients + 1):(end - 1)]
+        leading_edge_weight = fit.param[end]
+        trailing_edge_thickness = convert(typeof(leading_edge_weight), 0)
+
+        res = [fit.param; 0]
+    else
+        upper_weights = fit.param[1:num_coefficients]
+        lower_weights = fit.param[(num_coefficients + 1):(end - 2)]
+        leading_edge_weight = fit.param[end - 1]
+        trailing_edge_thickness = fit.param[end]
+
+        res = fit.param
+    end
+
+    return KulfanParameters(
+        upper_weights = res[1:num_coefficients],
+        lower_weights = res[(num_coefficients + 1):(2 * num_coefficients)],
+        leading_edge_weight = res[end - 1],
+        trailing_edge_thickness = res[end],
+    )
+end
+"""
     normalize_coordinates!(coordinates)
 
 Normalize the input coordinates in place so that the x values lie within the unit interval [0, 1].
@@ -16,7 +137,6 @@ function normalize_coordinates!(coordinates)
     coordinates[:, 1] .-= minimum(@view coordinates[:, 1])
     coordinates ./= maximum(@view coordinates[:, 1])
 end
-
 
 """
     split_upper_lower_surfaces(coordinates)
@@ -38,7 +158,6 @@ Split airfoil coordinates into upper and lower surfaces.
     return coordinates[1:n, :], coordinates[(n + offset):end, :]
 end
 
-
 """
     bernstein(x, v, n)
 
@@ -56,7 +175,6 @@ Evaluate the Bernstein basis polynomial of degree `n` and index `v` at `x`.
     return @. binomial(n, v) * x^v * (1 - x)^(n - v)
 end
 
-
 """
     class_function(x, N1, N2)
 
@@ -73,7 +191,6 @@ Evaluate the class function used in Kulfan’s parametrization.
 @inline function class_function(x, N1, N2)
     return @. (x^N1) * (1 - x)^N2
 end
-
 
 """
     shape_function(x, coefficients)
@@ -96,7 +213,6 @@ Kulfan shape function defined as a weighted sum of Bernstein polynomials.
 
     return S
 end
-
 
 """
     cst(x, coefficients, leading_edge_weight, trailing_edge_thickness; N1=0.5, N2=1.0)
@@ -126,7 +242,6 @@ function cst(
               x * trailing_edge_thickness +
               leading_edge_weight * x * max(1 - x, 0)^(N + 0.5)
 end
-
 
 """
     airfoil_cst(x, parameters, x_split_id; N1=0.5, N2=1.0)
@@ -181,71 +296,4 @@ Reconstruct an airfoil surface from Kulfan (CST) parameters with a zero trailing
 """
 function airfoil_cst_zero_trailing_edge(x, parameters, x_split_id; N1 = 0.5, N2 = 1.0)
     return airfoil_cst(x, [parameters; 0], x_split_id; N1, N2)
-end
-
-
-"""
-    get_kulfan_parameters(coordinates; num_coefficients=8, N1=0.5, N2=1.0)
-
-Fit Kulfan (CST) parameters to airfoil coordinates.
-
-# Arguments
-- `coordinates::AbstractMatrix`: Airfoil coordinates with columns `[x, y]`
-- `num_coefficients::Int`: Number of Bernstein polynomial coefficients per surface
-    (default: 8)
-- `N1::Real`: Leading-edge exponent (default: 0.5)
-- `N2::Real`: Trailing-edge exponent (default: 1.0)
-
-# Returns
-- `KulfanParameters`: Fitted upper and lower weights, leading-edge weight, and
-    trailing-edge thickness
-"""
-function get_kulfan_parameters(coordinates; num_coefficients = 8, N1 = 0.5, N2 = 1.0)
-    coords_upper, coords_lower = split_upper_lower_surfaces(coordinates)
-
-    x_upper = @view coords_upper[:, 1]
-    y_upper = @view coords_upper[:, 2]
-    x_lower = @view coords_lower[:, 1]
-    y_lower = @view coords_lower[:, 2]
-
-    trailing_edge_thickness = y_upper[1] - y_lower[end]
-
-    fit = LsqFit.curve_fit(
-        (x, y) -> airfoil_cst(x, y, length(x_upper); N1, N2),
-        [x_upper; x_lower],
-        [y_upper; y_lower],
-        [ones(2 * num_coefficients + 1); trailing_edge_thickness],
-        autodiff=:forwarddiff
-    )
-
-    if fit.param[end] < 0
-        fit = LsqFit.curve_fit(
-            (x, y) -> airfoil_cst_zero_trailing_edge(x, y, length(x_upper); N1, N2),
-            [x_upper; x_lower],
-            [y_upper; y_lower],
-            ones(2 * num_coefficients + 1),
-            autodiff=:forwarddiff
-        )
-
-        upper_weights = fit.param[1:num_coefficients]
-        lower_weights = fit.param[(num_coefficients + 1):(end - 1)]
-        leading_edge_weight = fit.param[end]
-        trailing_edge_thickness = convert(typeof(leading_edge_weight), 0)
-
-        res = [fit.param; 0]
-    else
-        upper_weights = fit.param[1:num_coefficients]
-        lower_weights = fit.param[(num_coefficients + 1):(end - 2)]
-        leading_edge_weight = fit.param[end - 1]
-        trailing_edge_thickness = fit.param[end]
-
-        res = fit.param
-    end
-
-    return KulfanParameters(
-        upper_weights = res[1:num_coefficients],
-        lower_weights = res[(num_coefficients + 1):(2 * num_coefficients)],
-        leading_edge_weight = res[end - 1],
-        trailing_edge_thickness = res[end],
-    )
 end

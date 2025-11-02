@@ -47,7 +47,7 @@ end
     @testset "$filename" for filename in select_cases(readdir(database))
         coords = coordinates_from_file(joinpath(database, filename))
         py_kulfan = py_get_kulfan_from_coordinates(py_array(coords); normalize_coordinates=false)
-        jl_kulfan = NNFoil.get_kulfan_parameters(coords)
+        jl_kulfan = NNFoil.KulfanParameters(coords)
 
         # NOTE: for engineering purposes, an absolute difference of 1e-3 seems acceptable.
         # Reducing it to 1e-6 results in a few errors, but still acceptable.
