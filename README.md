@@ -14,8 +14,31 @@ more than 1600 airfoil samples to ensure a consistent implementation. See this
 [issue](https://github.com/byuflowlab/NeuralFoil.jl/issues/5) for more
 information on how NNFoil.jl differs from NeuralFoil.jl.
 
+## Installation
 
-## Citing NeuralFoil
+```julia-repl
+julia> import Pkg
+julia> Pkg.add("https://github.com/gabrielbdsantos/NNFoil.jl")
+```
+
+## Quick Start
+
+```julia
+import NNFoil
+import DelimitedFiles
+
+coordinates = DelimitedFiles.readdlm(joinpath(
+    NNFoil.DATA_PATH, split("../test/airfoils/raw/naca0018.dat", "/")...
+))
+kulfan_parameters = NNFoil.KulfanParameters(NNFoil.normalize_coordinates!(coordinates))
+network_parameters = NNFoil.NeuralNetworkParameters(; model_size = :xlarge)
+alpha = -180:180
+Reynolds = 5e6
+
+analysis = NNFoil.evaluate(network_parameters, kulfan_parameters, alpha, Reynolds)
+```
+
+## Citing
 
 If you use NNFoil.jl in your research, please cite both the [original Python
 package](https://github.com/peterdsharpe/NeuralFoil)
