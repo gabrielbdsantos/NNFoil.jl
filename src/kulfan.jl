@@ -39,15 +39,15 @@ function KulfanParameters(
         lower_weights::Vl,
         leading_edge_weight::Tl,
         trailing_edge_thickness::Tt
-) where {
+    ) where {
         Vu <: AbstractVector{<:Real},
         Vl <: AbstractVector{<:Real},
         Tl <: Real,
-        Tt <: Real
-}
+        Tt <: Real,
+    }
     T = promote_type(eltype(Vu), eltype(Vl), Tt, Tl)
 
-    KulfanParameters(
+    return KulfanParameters(
         convert.(T, upper_weights),
         convert.(T, lower_weights),
         convert(T, leading_edge_weight),
@@ -85,7 +85,7 @@ function KulfanParameters(coordinates; num_coefficients = 8, N1 = 0.5, N2 = 1.0)
         [x_upper; x_lower],
         [y_upper; y_lower],
         [ones(2 * num_coefficients + 1); trailing_edge_thickness],
-        autodiff=:forwarddiff
+        autodiff = :forwarddiff
     )
 
     if fit.param[end] < 0
@@ -94,7 +94,7 @@ function KulfanParameters(coordinates; num_coefficients = 8, N1 = 0.5, N2 = 1.0)
             [x_upper; x_lower],
             [y_upper; y_lower],
             ones(2 * num_coefficients + 1),
-            autodiff=:forwarddiff
+            autodiff = :forwarddiff
         )
 
         upper_weights = fit.param[1:num_coefficients]
@@ -119,6 +119,7 @@ function KulfanParameters(coordinates; num_coefficients = 8, N1 = 0.5, N2 = 1.0)
         trailing_edge_thickness = res[end],
     )
 end
+
 """
     normalize_coordinates!(coordinates)
 
@@ -135,7 +136,7 @@ Normalize the input coordinates in place so that the x values lie within the uni
 """
 function normalize_coordinates!(coordinates)
     coordinates[:, 1] .-= minimum(@view coordinates[:, 1])
-    coordinates ./= maximum(@view coordinates[:, 1])
+    return coordinates ./= maximum(@view coordinates[:, 1])
 end
 
 """
@@ -233,14 +234,14 @@ CST (Class--Shape Transformation) airfoil parametrization.
 function cst(
         x, coefficients, leading_edge_weight, trailing_edge_thickness;
         N1 = 0.5, N2 = 1.0
-)
+    )
     N = length(coefficients)
     C = class_function(x, N1, N2)
     S = shape_function(x, coefficients)
 
     return @. C * S +
-              x * trailing_edge_thickness +
-              leading_edge_weight * x * max(1 - x, 0)^(N + 0.5)
+        x * trailing_edge_thickness +
+        leading_edge_weight * x * max(1 - x, 0)^(N + 0.5)
 end
 
 """

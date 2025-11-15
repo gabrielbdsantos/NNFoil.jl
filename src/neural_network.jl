@@ -18,12 +18,12 @@ Stores the parameters of the pretrained neural network model.
 - `biases::B`: vector of bias vectors for each layer.
 """
 struct NeuralNetworkParameters{
-    R <: Real,
-    V <: AbstractVector{R},
-    M <: AbstractMatrix{R},
-    W <: AbstractVector{M},
-    B <: AbstractVector{V}
-}
+        R <: Real,
+        V <: AbstractVector{R},
+        M <: AbstractMatrix{R},
+        W <: AbstractVector{M},
+        B <: AbstractVector{V},
+    }
     mean_inputs_scaled::V
     cov_inputs_scaled::M
     inv_cov_inputs_scaled::M
@@ -45,7 +45,7 @@ parameters.
 # Returns
 - `NeuralNetworkParameters`
 """
-function NeuralNetworkParameters(; model_size=:xlarge, T=Float64)
+function NeuralNetworkParameters(; model_size = :xlarge, T = Float64)
     scaled_input_distribution = NPZ.npzread(
         joinpath(DATA_PATH, "scaled_input_distribution.npz")
     )
@@ -57,10 +57,14 @@ function NeuralNetworkParameters(; model_size=:xlarge, T=Float64)
         convert.(T, scaled_input_distribution["mean_inputs_scaled"]),
         convert.(T, scaled_input_distribution["cov_inputs_scaled"]),
         convert.(T, scaled_input_distribution["inv_cov_inputs_scaled"]),
-        [convert.(T, network_parameters["net.$(id).weight"])
-         for id in 0:2:(length(network_parameters) - 2)],
-        [convert.(T, network_parameters["net.$(id).bias"])
-         for id in 0:2:(length(network_parameters) - 2)]
+        [
+            convert.(T, network_parameters["net.$(id).weight"])
+                for id in 0:2:(length(network_parameters) - 2)
+        ],
+        [
+            convert.(T, network_parameters["net.$(id).bias"])
+                for id in 0:2:(length(network_parameters) - 2)
+        ]
     )
 end
 
@@ -88,6 +92,7 @@ Stores the aerodynamic coefficients predicted by the neural network.
     Top_Xtr::V
     Bot_Xtr::V
 end
+
 """
     swish(x; beta=1)
 
@@ -139,12 +144,16 @@ mean of the scaled input distribution.
 # Returns
 - `AbstractArray{<:Real}`
 """
-function squared_mahalanobis_distance(network_parameters::NeuralNetworkParameters,
-        x::T) where {T <: AbstractArray{<:Real}}
+function squared_mahalanobis_distance(
+        network_parameters::NeuralNetworkParameters,
+        x::T
+    ) where {T <: AbstractArray{<:Real}}
     x_minus_mean = x .- network_parameters.mean_inputs_scaled
 
-    return sum(x_minus_mean .* (network_parameters.inv_cov_inputs_scaled * x_minus_mean);
-        dims = 1)'
+    return sum(
+        x_minus_mean .* (network_parameters.inv_cov_inputs_scaled * x_minus_mean);
+        dims = 1
+    )'
 end
 
 """
@@ -186,9 +195,11 @@ the input features.
 """
 function flip_x!(x::T) where {T <: AbstractArray{<:Real}}
     size(x, 1) == 25 ||
-        throw(DimensionMismatch(
+        throw(
+        DimensionMismatch(
             "`x` must be of size (25, :) but one size $(size(x)) was given."
-        ))
+        )
+    )
 
     @inbounds for i in axes(x, 2)
         for j in 1:8
@@ -227,15 +238,13 @@ coefficients.
 function evaluate(network_parameters, x)
     y = net(network_parameters, x)
     @views y[1, :] .-= (
-        squared_mahalanobis_distance(network_parameters, x)
-        ./ (2.0 * size(x, 1))
+        squared_mahalanobis_distance(network_parameters, x) ./ (2.0 * size(x, 1))
     )
 
     flip_x!(x)
     y_flipped = net(network_parameters, x)
     @views y_flipped[1, :] .-= (
-        squared_mahalanobis_distance(network_parameters, x)
-        ./ (2.0 * size(x, 1))
+        squared_mahalanobis_distance(network_parameters, x) ./ (2.0 * size(x, 1))
     )
 
     # Temporary variable
@@ -310,12 +319,12 @@ function evaluate(
         network_parameters::NeuralNetworkParameters,
         kulfan_parameters::KulfanParameters,
         alpha::A,
-        Reynolds::R,
+        Reynolds::R
         ;
         n_crit = 9,
         xtr_upper = 1,
         xtr_lower = 1
-) where {A <: AbstractVector{<:Real}, R <: AbstractVector{<:Real}}
+    ) where {A <: AbstractVector{<:Real}, R <: AbstractVector{<:Real}}
     L = length(alpha)
     x = vcat(
         repeat(kulfan_parameters.upper_weights, outer = (1, L)),
@@ -338,23 +347,25 @@ function evaluate(
         network_parameters::NeuralNetworkParameters,
         kulfan_parameters::KulfanParameters,
         alpha::A,
-        Reynolds::R,
+        Reynolds::R
         ;
         n_crit = 9,
         xtr_upper = 1,
         xtr_lower = 1
-) where {A <: Real, R <: Real}
-    x = [kulfan_parameters.upper_weights
-         kulfan_parameters.lower_weights
-         kulfan_parameters.leading_edge_weight
-         kulfan_parameters.trailing_edge_thickness * 50.0
-         sind(2.0 * alpha)
-         cosd(alpha)
-         1.0 - cosd(alpha)^2
-         (log(Reynolds) - 12.5) / 3.5
-         (n_crit - 9.0) / 4.5
-         xtr_upper
-         xtr_lower]
+    ) where {A <: Real, R <: Real}
+    x = [
+        kulfan_parameters.upper_weights
+        kulfan_parameters.lower_weights
+        kulfan_parameters.leading_edge_weight
+        kulfan_parameters.trailing_edge_thickness * 50.0
+        sind(2.0 * alpha)
+        cosd(alpha)
+        1.0 - cosd(alpha)^2
+        (log(Reynolds) - 12.5) / 3.5
+        (n_crit - 9.0) / 4.5
+        xtr_upper
+        xtr_lower
+    ]
 
     return evaluate(network_parameters, x)
 end
@@ -363,26 +374,30 @@ function evaluate(
         network_parameters::NeuralNetworkParameters,
         kulfan_parameters::KulfanParameters,
         alpha::A,
-        Reynolds::R,
+        Reynolds::R
         ;
         n_crit = 9,
         xtr_upper = 1,
         xtr_lower = 1
-) where {A <: AbstractVector{<:Real}, R <: Real}
-    return evaluate(network_parameters, kulfan_parameters, alpha,
-        fill(Reynolds, length(alpha)); n_crit, xtr_upper, xtr_lower)
+    ) where {A <: AbstractVector{<:Real}, R <: Real}
+    return evaluate(
+        network_parameters, kulfan_parameters, alpha, fill(Reynolds, length(alpha));
+        n_crit, xtr_upper, xtr_lower
+    )
 end
 
 function evaluate(
         network_parameters::NeuralNetworkParameters,
         kulfan_parameters::KulfanParameters,
         alpha::A,
-        Reynolds::R,
+        Reynolds::R
         ;
         n_crit = 9,
         xtr_upper = 1,
         xtr_lower = 1
-) where {A <: Real, R <: AbstractVector{<:Real}}
-    return evaluate(network_parameters, kulfan_parameters, fill(alpha, length(Reynolds)),
-        Reynolds; n_crit, xtr_upper, xtr_lower)
+    ) where {A <: Real, R <: AbstractVector{<:Real}}
+    return evaluate(
+        network_parameters, kulfan_parameters, fill(alpha, length(Reynolds)), Reynolds;
+        n_crit, xtr_upper, xtr_lower
+    )
 end
