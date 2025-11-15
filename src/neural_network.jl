@@ -190,12 +190,11 @@ Flip the input array `x` in-place, creating a geometrically mirrored version of
 the input features.
 
 # Arguments
-- `x::AbstractArray{<:Real}`: Input array of size (25, :) where each column
-    represents a sample. The flipping is applied across specific rows.
+- `x::AbstractArray`: Input array of size (25, :) where each column represents
+    a sample. The flipping is applied across specific rows.
 """
-function flip_x!(x::T) where {T <: AbstractArray{<:Real}}
-    size(x, 1) == 25 ||
-        throw(
+function flip_x!(x)
+    size(x, 1) == 25 || throw(
         DimensionMismatch(
             "`x` must be of size (25, :) but one size $(size(x)) was given."
         )
