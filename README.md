@@ -1,10 +1,15 @@
-# NNFoil.jl
+<h1 align="center">
+    NNFoil.jl
+</h1>
+
+<div align="center">
 
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://gabrielbdsantos.github.io/NNFoil.jl/stable/)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://gabrielbdsantos.github.io/NNFoil.jl/dev/)
 [![Build Status](https://github.com/gabrielbdsantos/NNFoil.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/gabrielbdsantos/NNFoil.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![Aqua](https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
 
+</div>
 
 This is a partial Julia translation of
 [NeuralFoil](https://github.com/peterdsharpe/NeuralFoil/) inspired by
@@ -16,32 +21,41 @@ information on how NNFoil.jl differs from NeuralFoil.jl.
 
 ## Installation
 
+NNFoil.jl is not yet a registered Julia package. So to install it,
+
+1. Download [Julia](https://julialang.org/downloads/) version 1.10 or later.
+1. Launch Julia and type
+
 ```julia-repl
 julia> import Pkg
 julia> Pkg.add("https://github.com/gabrielbdsantos/NNFoil.jl")
 ```
 
-## Quick Start
+## Quick start
 
 ```julia
 import NNFoil
 import DelimitedFiles
 
-coordinates = DelimitedFiles.readdlm(joinpath(
-    NNFoil.DATA_PATH, split("../test/airfoils/raw/naca0018.dat", "/")...
-))
+coordinates = DelimitedFiles.readdlm(
+    abspath(
+        joinpath(
+            NNFoil.DATA_PATH, splitpath("../test/airfoils/raw/naca0018.dat")...
+        )
+    )
+)
 kulfan_parameters = NNFoil.KulfanParameters(NNFoil.normalize_coordinates!(coordinates))
 network_parameters = NNFoil.NeuralNetworkParameters(; model_size = :xlarge)
 alpha = -180:180
-Reynolds = 5e6
+Reynolds = 5.0e6
 
 analysis = NNFoil.evaluate(network_parameters, kulfan_parameters, alpha, Reynolds)
 ```
 
 ## Citing
 
-If you use NNFoil.jl in your research, please cite both the [original Python
-package](https://github.com/peterdsharpe/NeuralFoil)
+If you use NNFoil.jl in your research, please cite both the
+[original Python package](https://github.com/peterdsharpe/NeuralFoil)
 
 ```bibtex
 @misc{neuralfoil,
@@ -54,9 +68,10 @@ package](https://github.com/peterdsharpe/NeuralFoil)
 }
 ```
 
-and [the original author's PhD
-thesis](https://dspace.mit.edu/handle/1721.1/157809), which has an extended
-chapter that serves as the primary long-form documentation for the tool:
+and
+[the original author's PhD thesis](https://dspace.mit.edu/handle/1721.1/157809),
+which has an extended chapter that serves as the primary long-form
+documentation for the tool:
 
 ```bibtex
 @phdthesis{aerosandbox_phd_thesis,
@@ -72,3 +87,8 @@ chapter that serves as the primary long-form documentation for the tool:
 Special thanks to Judd Mehr from the [BYU FLOW Lab](https://flow.byu.edu) for
 putting together an earlier translation of the original Python package to
 Julia.
+
+## License
+
+NNFoil.jl is released under the terms of the MIT license. See the
+[LICENSE](./LICENSE) file for details.
