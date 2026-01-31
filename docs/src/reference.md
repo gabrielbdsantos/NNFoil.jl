@@ -1,5 +1,0 @@
-# NNFoil
-
-```@autodocs
-Modules = [NNFoil]
-```
