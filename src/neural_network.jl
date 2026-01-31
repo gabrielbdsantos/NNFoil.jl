@@ -4,6 +4,7 @@
 Stores the parameters of the pretrained neural network model.
 
 # Type Parameters
+
 - `R<:Real`: numeric type used for all elements.
 - `V<:AbstractVector{R}`: vector type (for input means and biases).
 - `M<:AbstractMatrix{R}`: matrix type (for covariances and weight matrices).
@@ -11,6 +12,7 @@ Stores the parameters of the pretrained neural network model.
 - `B<:AbstractVector{V}`: collection of bias vectors, one per layer.
 
 # Fields
+
 - `mean_inputs_scaled::V`: mean values of the scaled input features.
 - `cov_inputs_scaled::M`: covariance matrix of the scaled inputs.
 - `inv_cov_inputs_scaled::M`: inverse of the covariance matrix.
@@ -38,12 +40,13 @@ Alternative constructor that loads and converts the pretrained neural network
 parameters.
 
 # Arguments
+
 - `model_size`: Size of the pretrained model parameters to load.
-- `T::Type`: Numerical type to which all loaded arrays will be
-    converted.
+- `T::Type`: Numerical type to which all loaded arrays will be converted.
 
 # Returns
-- `NeuralNetworkParameters`
+
+- [`NeuralNetworkParameters`](@ref)
 """
 function NeuralNetworkParameters(; model_size = :xlarge, T = Float64)
     scaled_input_distribution = NPZ.npzread(
@@ -74,9 +77,12 @@ end
 Stores the aerodynamic coefficients predicted by the neural network.
 
 # Type Parameters
-- `V<:AbstractVector{<:Real}`: numeric vector type used for all output quantities.
+
+- `V<:AbstractVector{<:Real}`: numeric vector type used for all output
+  quantities.
 
 # Fields
+
 - `analysis_confidence::V`: confidence level of the neural network prediction.
 - `CL::V`: lift coefficient values.
 - `CD::V`: drag coefficient values.
@@ -99,10 +105,12 @@ end
 Apply the Swish activation function elementwise.
 
 # Arguments
+
 - `x`: Input value.
 - `beta::Real=1`: Slope parameter controlling smoothness.
 
 # Returns
+
 - Scalar or Array of the same shape as `x`: Activated values.
 """
 @inline function swish(x; beta = 1)
@@ -112,15 +120,17 @@ end
 """
     sigmoid(x::T; ln_eps=log(10 / floatmax(eltype(T)))) where {T}
 
-Apply the sigmoid activation function elementwise. Also employ input clipping for
-numerical stability.
+Apply the sigmoid activation function elementwise. Also employ input clipping
+for numerical stability.
 
 # Arguments
+
 - `x::T`: Input value.
-- `ln_eps::Real=log(10 / floatmax(eltype(T)))`: Logarithmic bound used to
-    clip input values for stability.
+- `ln_eps::Real=log(10 / floatmax(eltype(T)))`: Logarithmic bound used to clip
+  input values for stability.
 
 # Returns
+
 - Scalar or Array of the same shape as `x` with values in the range (0, 1).
 """
 @inline function sigmoid(x::T; ln_eps = log(10 / floatmax(eltype(T)))) where {T}
@@ -136,12 +146,13 @@ Compute the squared Mahalanobis distance between the input array `x` and the
 mean of the scaled input distribution.
 
 # Arguments
+
 - `network_parameters::NetworkParameters`: pretrained neural network parameters
-    containing the mean and inverse covariance of the scaled input
-    distribution.
+  containing the mean and inverse covariance of the scaled input distribution.
 - `x::AbstractArray{<:Real}`: Input samples.
 
 # Returns
+
 - `AbstractArray{<:Real}`
 """
 function squared_mahalanobis_distance(
@@ -159,13 +170,17 @@ end
 """
     net(network_parameters::NetworkParameters, x::AbstractMatrix{<:Real})
 
-Evaluate the neural network using the pretrained network parameters on the given input `x`.
+Evaluate the neural network using the pretrained network parameters on the
+given input `x`.
 
 # Arguments
-- `network_parameters::NeuralNetworkParameters`: pretrained network weights and biases.
+
+- `network_parameters::NeuralNetworkParameters`: pretrained network weights and
+  biases.
 - `x::AbstractArray{<:Real}`: Input data of size (25, :).
 
 # Returns
+
 - `AbstractMatrix{<:Real}`
 """
 function net(network_parameters::NeuralNetworkParameters, x::AbstractArray{<:Real})
@@ -190,8 +205,9 @@ Flip the input array `x` in-place, creating a geometrically mirrored version of
 the input features.
 
 # Arguments
-- `x::AbstractArray`: Input array of size (25, :) where each column represents
-    a sample. The flipping is applied across specific rows.
+
+- `x::AbstractArray`: Input array of size (25,:) where each column represents a
+  sample. The flipping is applied across specific rows.
 """
 function flip_x!(x)
     size(x, 1) == 25 || throw(
@@ -222,12 +238,14 @@ post-processing transformations to produce physically meaningful aerodynamic
 coefficients.
 
 # Arguments
+
 - `network_parameters::NeuralNetworkParameters`: Pretrained parameters of the
-    neural network.
+  neural network.
 - `x::AbstractMatrix`: Matrix of preprocessed features characterizing the flow.
-    Each column corresponds to one input sample.
+  Each column corresponds to one input sample.
 
 # Returns
+
 - `NeuralNetworkOutput`: Predicted aerodynamic coefficients.
 
 !!! note
@@ -300,19 +318,21 @@ matrix `x` from geometric and flow characteristics and then it to the neural
 network for evaluation.
 
 # Arguments
+
 - `network_parameters::NeuralNetworkParameters`: Pretrained neural network
-    parameters.
+  parameters.
 - `kulfan_parameters::KulfanParameters`: Kulfan shape parameters describing the
-    airfoil geometry.
+  airfoil geometry.
 - `alpha`: Angle(s) of attack in degrees (`Real` or `AbstractVector{<:Real}`).
 - `Reynolds`: Reynolds number(s) corresponding to each `alpha` (`Real` or
-    `AbstractVector{<:Real}`).
+  `AbstractVector{<:Real}`).
 - `n_crit::Real=9`: Critical amplification factor for transition prediction.
 - `xtr_upper::Real=1`: Forced transition location on the upper surface.
 - `xtr_lower::Real=1`: Forced transition location on the lower surface.
 
 # Returns
-- `NeuralNetworkOutput`: Predicted aerodynamic coefficients.
+
+- [`NeuralNetworkOutput`](@ref): Predicted aerodynamic coefficients.
 """
 function evaluate(
         network_parameters::NeuralNetworkParameters,

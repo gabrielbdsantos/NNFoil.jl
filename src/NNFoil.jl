@@ -1,5 +1,6 @@
 """
-`NNFoil.jl` -- a partial Julia translation of NeuralFoil.
+`NNFoil.jl` -- a partial Julia translation of
+[NeuralFoil](https://github.com/peterdsharpe/NeuralFoil) v0.3.2.
 """
 module NNFoil
 

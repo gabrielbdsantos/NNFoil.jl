@@ -1,0 +1,43 @@
+# rumdl configuration file
+[global]
+disable = [
+  "MD025", # allow a single H1
+  "MD041", # first line should start with H1
+]
+
+exclude = [
+  # Common directories to exclude
+  ".git",
+  ".github",
+  "docs/build",
+
+  # Specific files or patterns
+  "CHANGELOG.md",
+  "LICENSE",
+]
+
+# Respect .gitignore files when scanning directories (default: true)
+respect-gitignore = true
+
+# Options: standard (default), gfm, commonmark, mkdocs, mdx, quarto
+flavor = "standard"
+
+# Heading style
+[MD003]
+style = "atx"
+
+# Unordered list style
+[MD004]
+style = "dash" # (asterisk, plus, dash, consistent)
+
+# Unordered list indentation
+[MD007]
+indent = 2
+# start-indented = true
+# start-indent = 2
+# style = "fixed"
+
+# Line length
+[MD013]
+line-length = 79
+reflow = true

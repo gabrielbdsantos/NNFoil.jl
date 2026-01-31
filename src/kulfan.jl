@@ -4,13 +4,16 @@
 Parameter container for the Kulfan (CST) airfoil shape parameterization.
 
 # Type parameters
+
 - `T<:Real`: floating-point element type.
 - `V<:AbstractVector{T}`: concrete vector type used for the weight arrays.
 
 # Fields
+
 - `upper_weights::V`: weights for the *upper* surface (commonly length 8).
 - `lower_weights::V`: weights for the *lower* surface (commonly length 8).
-- `leading_edge_weight::T`: scalar parameter controlling leading-edge thickness/rounding.
+- `leading_edge_weight::T`: scalar parameter controlling leading-edge
+  thickness/rounding.
 - `trailing_edge_thickness::T`: scalar trailing-edge thickness parameter.
 """
 @kwdef struct KulfanParameters{T <: Real, V <: AbstractVector{T}}
@@ -24,15 +27,17 @@ end
     KulfanParameters(upper_weights, lower_weights, leading_edge_weight,
         trailing_edge_thickness)
 
-Alternative constructor for `KulfanParameters` that **promotes** all inputs to a
-common floating-point type `T` and returns a `KulfanParameters{T, V}` where `V`
-matches the concrete vector type of the provided weights arrays (after promotion).
+Alternative constructor for `KulfanParameters` that **promotes** all inputs to
+a common floating-point type `T` and returns a `KulfanParameters{T, V}` where
+`V` matches the concrete vector type of the provided weights arrays (after
+promotion).
 
 # Arguments
+
 - `upper_weights::AbstractVector{<:Real}`: upper weights.
 - `lower_weights::AbstractVector{<:Real}`: lower weights.
-- `leading_edge_weight::Real`: LE scalar parameter.
-- `trailing_edge_thickness::Real`: TE thickness parameter.
+- `leading_edge_weight::Real`: leading-edge weight.
+- `trailing_edge_thickness::Real`: trailing-edge thickness.
 """
 function KulfanParameters(
         upper_weights::Vu,
@@ -61,12 +66,15 @@ end
 Fits Kulfan (CST) parameters to airfoil coordinates.
 
 # Arguments
+
 - `coordinates::AbstractMatrix`: Airfoil coordinates with columns `[x, y]`.
-- `num_coefficients::Int=8`: Number of Bernstein polynomial coefficients per surface.
+- `num_coefficients::Int=8`: Number of Bernstein polynomial coefficients per
+  surface.
 - `N1::Real=0.5`: Leading-edge exponent.
 - `N2::Real=1.0`: Trailing-edge exponent.
 
 # Returns
+
 - `KulfanParameters`: Fitted upper and lower weights, leading-edge weight, and
     trailing-edge thickness
 """
@@ -123,9 +131,11 @@ end
 """
     normalize_coordinates!(coordinates)
 
-Normalize the input coordinates in place so that the x values lie within the unit interval [0, 1].
+Normalize the input coordinates in place so that the x values lie within the
+unit interval [0, 1].
 
 # Arguments
+
 - `coordinates::AbstractMatrix`: Matrix of airfoil coordinates with columns
   representing the x and y values.
 
@@ -145,10 +155,12 @@ end
 Split airfoil coordinates into upper and lower surfaces.
 
 # Arguments
+
 - `coordinates::AbstractMatrix`: Matrix of airfoil coordinates with columns
   representing the x and y values.
 
 # Returns
+
 - `(upper, lower)`: Two matrices containing the coordinates of the upper
   and lower surfaces, respectively.
 """
@@ -165,14 +177,16 @@ end
 Evaluate the Bernstein basis polynomial of degree `n` and index `v` at `x`.
 
 # Arguments
+
 - `x`: Evaluation points (scalar, vector, or array).
-- `v::Signed`: Index of the basis polynomial.
-- `n::Signed`: Degree of the polynomial.
+- `v::Integer`: Index of the basis polynomial.
+- `n::Integer`: Degree of the polynomial.
 
 # Returns
+
 - Array of the same shape as `x`: Values of the Bernstein polynomial.
 """
-@inline function bernstein(x, v::I, n::I) where {I <: Signed}
+@inline function bernstein(x, v::I, n::I) where {I <: Integer}
     return @. binomial(n, v) * x^v * (1 - x)^(n - v)
 end
 
@@ -182,11 +196,13 @@ end
 Evaluate the class function used in Kulfan’s parametrization.
 
 # Arguments
+
 - `x`: Nondimensional chordwise coordinates [0--1].
 - `N1::Real`: Leading-edge exponent.
 - `N2::Real`: Trailing-edge exponent.
 
 # Returns
+
 - Array of the same shape as `x`: Values of the class function
 """
 @inline function class_function(x, N1, N2)
@@ -199,10 +215,12 @@ end
 Kulfan shape function defined as a weighted sum of Bernstein polynomials.
 
 # Arguments
+
 - `x`: Nondimensional chordwise coordinates [0, 1].
 - `coefficients::AbstractVector`: Weights for the Bernstein polynomials.
 
 # Returns
+
 - Same shape as `x`: Values of the shape function.
 """
 @inline function shape_function(x, coefficients)
@@ -221,6 +239,7 @@ end
 CST (Class--Shape Transformation) airfoil parametrization.
 
 # Arguments
+
 - `x`: Nondimensional chordwise coordinates [0, 1]
 - `coefficients::AbstractVector`: Shape function weights
 - `leading_edge_weight::Real`: Leading-edge modification term
@@ -229,7 +248,9 @@ CST (Class--Shape Transformation) airfoil parametrization.
 - `N2::Real`: Trailing-edge exponent (default: 1.0)
 
 # Returns
-- Same shape as `x`: Airfoil surface coordinates defined by the CST parametrization
+
+- Same shape as `x`: Airfoil surface coordinates defined by the CST
+  parametrization
 """
 function cst(
         x, coefficients, leading_edge_weight, trailing_edge_thickness;
@@ -250,6 +271,7 @@ end
 Reconstruct an airfoil surface from Kulfan (CST) parameters.
 
 # Arguments
+
 - `x`: Vector of nondimensional chordwise coordinates (0–1)
 - `parameters::AbstractVector`: upper and lower weights, leading-edge weight,
     trailing-edge thickness
@@ -258,6 +280,7 @@ Reconstruct an airfoil surface from Kulfan (CST) parameters.
 - `N2::Real`: Trailing-edge exponent (default: 1.0)
 
 # Returns
+
 - `Vector`: Airfoil surface y-coordinates corresponding to `x`
 """
 function airfoil_cst(x, parameters, x_split_id; N1 = 0.5, N2 = 1.0)
@@ -283,16 +306,20 @@ end
 """
     airfoil_cst_zero_trailing_edge(x, parameters, x_split_id; N1=0.5, N2=1.0)
 
-Reconstruct an airfoil surface from Kulfan (CST) parameters with a zero trailing-edge gap.
+Reconstruct an airfoil surface from Kulfan (CST) parameters with a zero
+trailing-edge gap.
 
 # Arguments
+
 - `x`: Vector of nondimensional chordwise coordinates (0–1)
-- `parameters::AbstractVector`: upper and lower weights, and leading-edge weight
+- `parameters::AbstractVector`: upper and lower weights, and leading-edge
+  weight
 - `x_split_id::Int`: Index separating upper and lower surface coordinates
 - `N1::Real`: Leading-edge exponent (default: 0.5)
 - `N2::Real`: Trailing-edge exponent (default: 1.0)
 
 # Returns
+
 - `Vector`: Airfoil surface y-coordinates corresponding to `x`
 """
 function airfoil_cst_zero_trailing_edge(x, parameters, x_split_id; N1 = 0.5, N2 = 1.0)
