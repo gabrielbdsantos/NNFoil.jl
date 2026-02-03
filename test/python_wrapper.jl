@@ -15,16 +15,18 @@ using PythonCall
 
 
 macro wrap_pyfunction(mod, fname, jname)
-    quote
+    return quote
         const pymod = pyimport($mod)
 
         # Define functions with the same names as the input symbols
-        $(:(
-            function $(esc(jname))(args...; kwargs...)
-                pyf = @pyconst pymod.$(fname)
-                return pyf(args...; kwargs...)
-            end
-        ))
+        $(
+            :(
+                function $(esc(jname))(args...; kwargs...)
+                    pyf = @pyconst pymod.$(fname)
+                    return pyf(args...; kwargs...)
+                end
+            )
+        )
     end
 end
 
@@ -35,12 +37,12 @@ end
 @wrap_pyfunction "neuralfoil" get_aero_from_kulfan_parameters py_get_aero_from_kulfan_parameters
 
 
-function py_get_kulfan_from_coordinates(coordinates; normalize_coordinates=false)
-    py_get_kulfan_parameters(coordinates, normalize_coordinates=normalize_coordinates)
+function py_get_kulfan_from_coordinates(coordinates; normalize_coordinates = false)
+    return py_get_kulfan_parameters(coordinates, normalize_coordinates = normalize_coordinates)
 end
 
 
-function py_get_kulfan_from_file(filepath; normalize_coordinates=false)
+function py_get_kulfan_from_file(filepath; normalize_coordinates = false)
     coordinates = py_array(coordinates_from_file(filepath))
     return py_get_kulfan_from_coordinates(coordinates; normalize_coordinates)
 end

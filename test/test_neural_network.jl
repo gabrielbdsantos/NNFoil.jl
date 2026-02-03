@@ -1,17 +1,17 @@
-const MODEL_PARAMS = NNFoil.NeuralNetworkParameters(; model_size=MODEL_SIZE)
+const MODEL_PARAMS = NNFoil.NeuralNetworkParameters(; model_size = MODEL_SIZE)
 const ALPHA = collect(-180.0:180.0)
 const RE_RANGE = 10 .^ range(3, 9, NUM_REYNOLDS_VALUES)
 
 
 function py_network(kulfan, alpha, Reynolds)
     py_ans = py_get_aero_from_kulfan_parameters(
-        kulfan_parameters=kulfan,
-        alpha=alpha,
-        Re=Reynolds,
-        model_size=string(MODEL_SIZE)
+        kulfan_parameters = kulfan,
+        alpha = alpha,
+        Re = Reynolds,
+        model_size = string(MODEL_SIZE)
     )
 
-    NNFoil.NeuralNetworkOutput(
+    return NNFoil.NeuralNetworkOutput(
         pyconvert(Vector{Float64}, py_ans["analysis_confidence"]),
         pyconvert(Vector{Float64}, py_ans["CL"]),
         pyconvert(Vector{Float64}, py_ans["CD"]),
@@ -23,34 +23,34 @@ end
 
 
 function compare_networks(py_kulfan, jl_kulfan, alpha, ReRange, atol)
-    @testset "Re = $Re" for Re in ReRange
+    return @testset "Re = $Re" for Re in ReRange
         py_ans = py_network(py_kulfan, py_array(alpha), py_array(Re))
         jl_ans = NNFoil.evaluate(MODEL_PARAMS, jl_kulfan, alpha, Re)
 
-        @test isapprox(py_ans, jl_ans; atol=atol)
+        @test isapprox(py_ans, jl_ans; atol = atol)
     end
 end
 
 
-@testset "Neural Network ($database)" for database in readdir(AIRFOILS_DIR; join=true)
+@testset "Neural Network ($database)" for database in readdir(AIRFOILS_DIR; join = true)
     @testset "$filename" for filename in select_cases(readdir(database))
         py_kulfan = py_get_kulfan_from_file(joinpath(database, filename))
         jl_kulfan = convert_kulfan_py2jl(py_kulfan)
 
         # NOTE: the tolerance here is tighter to ensure consistent results.
-        compare_networks(py_kulfan, jl_kulfan, ALPHA, RE_RANGE, 1e-9)
+        compare_networks(py_kulfan, jl_kulfan, ALPHA, RE_RANGE, 1.0e-9)
     end
 end
 
 
-@testset "Workflow ($database)" for database in readdir(AIRFOILS_DIR; join=true)
+@testset "Workflow ($database)" for database in readdir(AIRFOILS_DIR; join = true)
     @testset "$filename" for filename in select_cases(readdir(database))
         coords = coordinates_from_file(joinpath(database, filename))
-        py_kulfan = py_get_kulfan_from_coordinates(py_array(coords); normalize_coordinates=false)
+        py_kulfan = py_get_kulfan_from_coordinates(py_array(coords); normalize_coordinates = false)
         jl_kulfan = NNFoil.KulfanParameters(coords)
 
         # NOTE: for engineering purposes, an absolute difference of 1e-3 seems acceptable.
         # Reducing it to 1e-6 results in a few errors, but still acceptable.
-        compare_networks(py_kulfan, jl_kulfan, ALPHA, RE_RANGE, 1e-3)
+        compare_networks(py_kulfan, jl_kulfan, ALPHA, RE_RANGE, 1.0e-3)
     end
 end
