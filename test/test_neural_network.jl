@@ -2,7 +2,6 @@ const MODEL_PARAMS = NNFoil.NeuralNetworkParameters(; model_size = MODEL_SIZE)
 const ALPHA = collect(-180.0:180.0)
 const RE_RANGE = 10 .^ range(3, 9, NUM_REYNOLDS_VALUES)
 
-
 function py_network(kulfan, alpha, Reynolds)
     py_ans = py_get_aero_from_kulfan_parameters(
         kulfan_parameters = kulfan,
@@ -21,16 +20,18 @@ function py_network(kulfan, alpha, Reynolds)
     )
 end
 
-
 function compare_networks(py_kulfan, jl_kulfan, alpha, ReRange, atol)
     return @testset "Re = $Re" for Re in ReRange
         py_ans = py_network(py_kulfan, py_array(alpha), py_array(Re))
         jl_ans = NNFoil.evaluate(MODEL_PARAMS, jl_kulfan, alpha, Re)
 
+        jl_inplace_cache = NNFoil.NeuralNetworkCache(MODEL_PARAMS, jl_kulfan, alpha, Re)
+        NNFoil.evaluate!(jl_inplace_cache)
+
         @test isapprox(py_ans, jl_ans; atol = atol)
+        @test isapprox(py_ans, jl_inplace_cache.outputs; atol = atol)
     end
 end
-
 
 @testset "Neural Network ($database)" for database in readdir(AIRFOILS_DIR; join = true)
     @testset "$filename" for filename in select_cases(readdir(database))
@@ -41,7 +42,6 @@ end
         compare_networks(py_kulfan, jl_kulfan, ALPHA, RE_RANGE, 1.0e-9)
     end
 end
-
 
 @testset "Workflow ($database)" for database in readdir(AIRFOILS_DIR; join = true)
     @testset "$filename" for filename in select_cases(readdir(database))
