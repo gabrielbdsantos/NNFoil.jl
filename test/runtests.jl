@@ -30,7 +30,10 @@ include("python_wrapper.jl")
     end
 
     @testset "Unit tests" begin
-        # Nothing yet
+        for file in sort(readdir(joinpath(@__DIR__, "unittests")))
+            endswith(file, ".jl") || continue
+            include(joinpath("unittests", file))
+        end
     end
 
     @testset verbose = true "Comparison against NeuralFoil (Python)" begin

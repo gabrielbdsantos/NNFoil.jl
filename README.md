@@ -52,6 +52,43 @@ Reynolds = 5.0e6
 analysis = evaluate(network_parameters, kulfan_parameters, alpha, Reynolds)
 ```
 
+## In-place evaluation
+
+For repeated evaluations, use a cache to reuse preallocated buffers:
+
+```julia
+using NNFoil
+using DelimitedFiles
+
+coordinates = readdlm(
+    abspath(
+        joinpath(
+            NNFoil.DATA_PATH, splitpath("../test/airfoils/raw/naca0018.dat")...
+        )
+    )
+)
+kulfan_parameters = KulfanParameters(normalize_coordinates!(coordinates))
+network_parameters = NeuralNetworkParameters(; model_size = :xlarge)
+alpha = -180:180
+Reynolds = 5.0e6
+
+cache = NeuralNetworkCache(network_parameters, kulfan_parameters, alpha, Reynolds)
+evaluate!(cache)
+analysis = cache.outputs
+
+Reynolds_updated = 7.5e6
+update_features!(
+    cache;
+    kulfan_parameters,
+    alpha,
+    Reynolds = Reynolds_updated,
+)
+evaluate!(cache)
+analysis_updated = cache.outputs
+```
+
+See `examples/example02.jl` for a complete in-place example.
+
 ## Citing
 
 If you use NNFoil.jl in your research, please cite both the
