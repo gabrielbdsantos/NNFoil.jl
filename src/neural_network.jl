@@ -345,6 +345,178 @@ function update_features!(cache::NeuralNetworkCache, x)
     return nothing
 end
 
+update_features!(
+    cache::NeuralNetworkCache, kulfan_parameters::KulfanParameters,
+    alpha, Reynolds;
+    n_crit = 9, xtr_upper = 1, xtr_lower = 1
+) = update_features!(
+    cache; kulfan_parameters, alpha, Reynolds, n_crit, xtr_upper, xtr_lower
+)
+
+function update_features!(
+        cache::NeuralNetworkCache;
+        kulfan_parameters::KulfanParameters,
+        alpha,
+        Reynolds,
+        n_crit = 9,
+        xtr_upper = 1,
+        xtr_lower = 1
+    )
+    size(cache.x, 1) == 25 || throw(
+        DimensionMismatch(
+            "`x` must be of size (25, *). An array of size $(size(cache.x)) was given."
+        )
+    )
+    L = size(cache.x, 2)
+
+    upper = kulfan_parameters.upper_weights
+    lower = kulfan_parameters.lower_weights
+
+    length(upper) == 8 || throw(
+        DimensionMismatch("`kulfan_parameters.upper_weights` must have length 8.")
+    )
+    length(lower) == 8 || throw(
+        DimensionMismatch("`kulfan_parameters.lower_weights` must have length 8.")
+    )
+
+    le = kulfan_parameters.leading_edge_weight
+    te = kulfan_parameters.trailing_edge_thickness * 50
+    n_crit_scaled = (n_crit - 9) / 4.5
+
+    @inbounds for i in 1:L
+        for j in 1:8
+            cache.x[j, i] = upper[j]
+            cache.x[8 + j, i] = lower[j]
+        end
+
+        cache.x[17, i] = le
+        cache.x[18, i] = te
+    end
+
+    _update_flow_features!(
+        cache.x, alpha, Reynolds, L, n_crit_scaled, xtr_upper, xtr_lower
+    )
+
+    copyto!(cache.x_flipped, cache.x)
+    flip_inputs!(cache.x_flipped)
+
+    return nothing
+end
+
+function _update_flow_features!(
+        x::AbstractVecOrMat{<:Real},
+        alpha::Real,
+        Reynolds::Real,
+        L::Integer,
+        n_crit_scaled,
+        xtr_upper,
+        xtr_lower
+    )
+    L == 1 || throw(
+        DimensionMismatch(
+            "`x` has $L columns, but scalar `alpha` and scalar `Reynolds` define a single sample."
+        )
+    )
+
+    @inbounds _write_flow_column!(
+        x, 1, alpha, Reynolds, n_crit_scaled, xtr_upper, xtr_lower
+    )
+
+    return nothing
+end
+
+function _update_flow_features!(
+        x::AbstractVecOrMat{<:Real},
+        alpha::AbstractVector{<:Real},
+        Reynolds::Real,
+        L::Integer,
+        n_crit_scaled,
+        xtr_upper,
+        xtr_lower
+    )
+    length(alpha) == L || throw(
+        DimensionMismatch(
+            "`alpha` must have length $L to match `x`, got length $(length(alpha))."
+        )
+    )
+
+    @inbounds for i in 1:L
+        _write_flow_column!(x, i, alpha[i], Reynolds, n_crit_scaled, xtr_upper, xtr_lower)
+    end
+
+    return nothing
+end
+
+function _update_flow_features!(
+        x::AbstractVecOrMat{<:Real},
+        alpha::Real,
+        Reynolds::AbstractVector{<:Real},
+        L::Integer,
+        n_crit_scaled,
+        xtr_upper,
+        xtr_lower
+    )
+    length(Reynolds) == L || throw(
+        DimensionMismatch(
+            "`Reynolds` must have length $L to match `x`, got length $(length(Reynolds))."
+        )
+    )
+
+    @inbounds for i in 1:L
+        _write_flow_column!(x, i, alpha, Reynolds[i], n_crit_scaled, xtr_upper, xtr_lower)
+    end
+
+    return nothing
+end
+
+function _update_flow_features!(
+        x::AbstractVecOrMat{<:Real},
+        alpha::AbstractVector{<:Real},
+        Reynolds::AbstractVector{<:Real},
+        L::Integer,
+        n_crit_scaled,
+        xtr_upper,
+        xtr_lower
+    )
+    length(alpha) == length(Reynolds) || throw(
+        DimensionMismatch("`alpha` and `Reynolds` must have the same length.")
+    )
+    length(alpha) == L || throw(
+        DimensionMismatch(
+            "`alpha` and `Reynolds` must have length $L to match `x`, got length $(length(alpha))."
+        )
+    )
+
+    @inbounds for i in 1:L
+        _write_flow_column!(
+            x, i, alpha[i], Reynolds[i], n_crit_scaled, xtr_upper, xtr_lower
+        )
+    end
+
+    return nothing
+end
+
+@inline function _write_flow_column!(
+        x,
+        i::Integer,
+        alpha,
+        Reynolds,
+        n_crit_scaled,
+        xtr_upper,
+        xtr_lower
+    )
+    c = cosd(alpha)
+    x[19, i] = sind(2 * alpha)
+    x[20, i] = c
+    x[21, i] = 1 - c^2
+    x[22, i] = (log(Reynolds) - 12.5) / 3.5
+    x[23, i] = n_crit_scaled
+    x[24, i] = xtr_upper
+    x[25, i] = xtr_lower
+
+    return nothing
+end
+
 """
     flip_inputs!(x)
 
