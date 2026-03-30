@@ -52,9 +52,7 @@ Reynolds = 5.0e6
 analysis = evaluate(network_parameters, kulfan_parameters, alpha, Reynolds)
 ```
 
-## In-place evaluation
-
-For repeated evaluations, use a cache to reuse preallocated buffers:
+For repeated evaluations, use a cache to reuse pre-allocated buffers:
 
 ```julia
 using NNFoil
@@ -86,8 +84,6 @@ update_features!(
 evaluate!(cache)
 analysis_updated = cache.outputs
 ```
-
-See `examples/example02.jl` for a complete in-place example.
 
 ## Citing
 
