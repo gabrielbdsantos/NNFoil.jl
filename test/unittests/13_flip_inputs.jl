@@ -19,4 +19,12 @@
     @test x == x_original
 
     @test_throws DimensionMismatch NNFoil.flip_inputs!(zeros(24, 1))
+
+    @testset "zero allocation" begin
+        x_alloc = reshape(collect(1.0:50.0), 25, 2)
+        flip_alloc(xx) = @allocated NNFoil.flip_inputs!(xx)
+
+        NNFoil.flip_inputs!(x_alloc)
+        @test flip_alloc(x_alloc) == 0
+    end
 end

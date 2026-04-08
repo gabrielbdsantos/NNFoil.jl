@@ -12,4 +12,12 @@
     y_scalar_matrix = NNFoil.forward(UNIT_NETWORK_PARAMETERS, reshape(x_scalar, :, 1))
 
     @test y_scalar ≈ vec(y_scalar_matrix)
+
+    @testset "zero allocation" begin
+        y_alloc, tmp_alloc = NNFoil.allocate_forward_cache(UNIT_NETWORK_PARAMETERS, copy(x))
+        forward_alloc(y, p, tmp) = @allocated NNFoil.forward!(y, p, tmp)
+
+        NNFoil.forward!(y_alloc, UNIT_NETWORK_PARAMETERS, tmp_alloc)
+        @test forward_alloc(y_alloc, UNIT_NETWORK_PARAMETERS, tmp_alloc) == 0
+    end
 end

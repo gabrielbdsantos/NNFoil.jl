@@ -20,4 +20,12 @@
     @test output.CM == y[4, :]
     @test output.Top_Xtr == y[5, :]
     @test output.Bot_Xtr == y[6, :]
+
+    @testset "zero allocation" begin
+        output_alloc = unit_output_buffer(size(y, 2))
+        pack_alloc(out, yy) = @allocated NNFoil.pack_output!(out, yy)
+
+        NNFoil.pack_output!(output_alloc, y)
+        @test pack_alloc(output_alloc, y) == 0
+    end
 end

@@ -21,4 +21,18 @@
     @test all(0 .<= out.analysis_confidence .<= 1)
     @test all(0 .<= out.Top_Xtr .<= 1)
     @test all(0 .<= out.Bot_Xtr .<= 1)
+
+    @testset "zero allocation" begin
+        cache = NNFoil.NeuralNetworkCache(
+            UNIT_NETWORK_PARAMETERS,
+            UNIT_KULFAN,
+            UNIT_ALPHA,
+            UNIT_REYNOLDS_SCALAR,
+        )
+
+        eval_alloc(c) = @allocated NNFoil.evaluate!(c)
+
+        NNFoil.evaluate!(cache)
+        @test eval_alloc(cache) == 0
+    end
 end
