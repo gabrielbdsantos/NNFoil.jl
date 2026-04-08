@@ -1,6 +1,6 @@
 @testset "Kulfan Parameters ($database)" for database in readdir(AIRFOILS_DIR; join = true)
-    @testset "$filename" for filename in readdir(database; join = true)
-        coords = coordinates_from_file(filename)
+    @testset "$filename" for filename in select_cases(readdir(database))
+        coords = coordinates_from_file(joinpath(database, filename))
         py_ans = convert_kulfan_py2jl(
             py_get_kulfan_from_coordinates(py_array(coords); normalize_coordinates = false)
         )

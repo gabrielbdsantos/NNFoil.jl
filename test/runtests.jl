@@ -2,21 +2,23 @@ using Test
 using NNFoil
 using DelimitedFiles
 
-const AIRFOILS_DIR = joinpath(".", "airfoils")
-const CHOOSE_RANDOMLY = false  # "CI" in ARGS ? true : false
-const LIMIT_NUM_CASES = 250
-const NUM_REYNOLDS_VALUES = 15
-
-# Only `import StatsBase` if needed.
-CHOOSE_RANDOMLY ? (import StatsBase) : nothing
-
 # NOTE: all tests use the "xsmall" network simply because it is faster. Using a
 # larger network size is not expected to produce a different outcome.
 const MODEL_SIZE = :xsmall
+const AIRFOILS_DIR = joinpath(".", "airfoils")
+const NUM_REYNOLDS_VALUES = 15
 
-function select_cases(cases::AbstractVector{<:AbstractString})
-    if CHOOSE_RANDOMLY === true
-        return StatsBase.sample(cases, LIMIT_NUM_CASES)
+const TEST_ARGS = Set(lowercase.(ARGS))
+const IS_CI = "ci" in TEST_ARGS
+const RUN_REDUCED_COMPARATIVE_SET = IS_CI && !("full" in TEST_ARGS)
+const CHOOSE_N_CASES_RANDOMLY = 100
+
+# Only `import StatsBase` if needed.
+RUN_REDUCED_COMPARATIVE_SET ? (import StatsBase) : nothing
+
+function select_cases(cases)
+    if RUN_REDUCED_COMPARATIVE_SET === true
+        return StatsBase.sample(cases, CHOOSE_N_CASES_RANDOMLY)
     else
         return cases
     end
@@ -40,15 +42,13 @@ include("utils.jl")
 
     @testset "Unit tests" begin
         for file in readdir(joinpath(@__DIR__, "unittests"); join = true, sort = true)
-            endswith(file, ".jl") || continue
-            include(file)
+            endswith(file, ".jl") && include(file)
         end
     end
 
     @testset verbose = true "Comparison against NeuralFoil (Python)" begin
         for file in readdir(joinpath(@__DIR__, "comparative"); join = true, sort = true)
-            endswith(file, ".jl") || continue
-            include(file)
+            endswith(file, ".jl") && include(file)
         end
     end
 end

@@ -42,7 +42,7 @@ jobs:
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
         with:
-          test_args: "CI"
+          test_args: ${{ startsWith(github.ref, 'refs/tags/') && 'CI full' || 'CI' }}
   docs:
     name: Documentation
     runs-on: ubuntu-latest
