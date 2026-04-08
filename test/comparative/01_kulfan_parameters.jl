@@ -6,7 +6,7 @@
         )
         jl_ans = NNFoil.KulfanParameters(coords)
 
-        # NOTE: an absolute tolerance of 1e-6 is enought to get consistent results out
+        # NOTE: an absolute tolerance of 1e-6 is enough to get consistent results out
         # of the neural network.
         @test isapprox(py_ans, jl_ans; atol = 1.0e-6)
     end
