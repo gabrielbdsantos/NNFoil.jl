@@ -1,0 +1,218 @@
+name: Release PR
+
+on:
+  push:
+    branches:
+      - release/**
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: write
+
+jobs:
+  create-release-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate release branch format
+        env:
+          BRANCH_NAME: ${{ github.ref_name }}
+        run: |
+          if [[ ! "$BRANCH_NAME" =~ ^release/v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid release branch: $BRANCH_NAME"
+            echo "Expected format: release/vX.Y.Z (e.g. release/v1.2.3)"
+            exit 1
+          fi
+
+      - name: Create release PR if missing
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const head = context.ref.replace('refs/heads/', '');
+            const base = 'main';
+            const version = head.replace('release/', '');
+
+            function parseVersion(tag) {
+              const match = /^v(\d+)\.(\d+)\.(\d+)$/.exec(tag);
+              if (!match) return null;
+              return {
+                major: Number(match[1]),
+                minor: Number(match[2]),
+                patch: Number(match[3]),
+              };
+            }
+
+            function compareVersions(a, b) {
+              if (a.major !== b.major) return a.major - b.major;
+              if (a.minor !== b.minor) return a.minor - b.minor;
+              return a.patch - b.patch;
+            }
+
+            const currentVersion = parseVersion(version);
+            if (!currentVersion) {
+              core.setFailed(`Invalid release version extracted from branch: ${version}`);
+              return;
+            }
+
+            const tags = await github.paginate(github.rest.repos.listTags, {
+              owner,
+              repo,
+              per_page: 100,
+            });
+
+            const previousTag = tags
+              .map((tag) => tag.name)
+              .filter((tagName) => {
+                const parsed = parseVersion(tagName);
+                return parsed && compareVersions(parsed, currentVersion) < 0;
+              })
+              .sort((a, b) => compareVersions(parseVersion(b), parseVersion(a)))[0];
+
+            let commitsSection = null;
+            let pullRequestsSection = null;
+            let issuesSection = null;
+            if (previousTag) {
+              const comparison = await github.rest.repos.compareCommitsWithBasehead({
+                owner,
+                repo,
+                basehead: `${previousTag}...${head}`,
+              });
+
+              const commits = comparison.data.commits || [];
+              if (commits.length > 0) {
+                const limitedCommits = commits.slice(0, 200);
+                const lines = limitedCommits.map((commit) => {
+                  const shortSha = commit.sha.slice(0, 7);
+                  const firstLine = (commit.commit.message || '').split('\n')[0];
+                  return `- ${shortSha} ${firstLine}`;
+                });
+                if (commits.length > limitedCommits.length) {
+                  lines.push(`- ... and ${commits.length - limitedCommits.length} more commit(s)`);
+                }
+                commitsSection = lines.join('\n');
+
+                const mergedPullsByNumber = new Map();
+                for (const commit of limitedCommits) {
+                  const associatedPulls = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+                    owner,
+                    repo,
+                    commit_sha: commit.sha,
+                  });
+
+                  for (const pull of associatedPulls.data || []) {
+                    if (!pull.merged_at) continue;
+                    if (pull.base.ref !== base) continue;
+                    mergedPullsByNumber.set(pull.number, pull);
+                  }
+                }
+
+                const mergedPulls = Array.from(mergedPullsByNumber.values()).sort((a, b) => {
+                  return new Date(a.merged_at).getTime() - new Date(b.merged_at).getTime();
+                });
+
+                if (mergedPulls.length > 0) {
+                  const prLines = mergedPulls.map((pull) => {
+                    return `- #${pull.number} ${pull.title}`;
+                  });
+                  pullRequestsSection = prLines.join('\n');
+
+                  const closedIssuesByNumber = new Map();
+                  for (const pull of mergedPulls) {
+                    const result = await github.graphql(
+                      `query($owner: String!, $repo: String!, $number: Int!) {
+                        repository(owner: $owner, name: $repo) {
+                          pullRequest(number: $number) {
+                            closingIssuesReferences(first: 50) {
+                              nodes {
+                                number
+                                title
+                                state
+                              }
+                            }
+                          }
+                        }
+                      }`,
+                      {
+                        owner,
+                        repo,
+                        number: pull.number,
+                      }
+                    );
+
+                    const issues =
+                      result?.repository?.pullRequest?.closingIssuesReferences?.nodes || [];
+                    for (const issue of issues) {
+                      if (issue.state !== 'CLOSED') continue;
+                      closedIssuesByNumber.set(issue.number, issue);
+                    }
+                  }
+
+                  const closedIssues = Array.from(closedIssuesByNumber.values()).sort((a, b) => {
+                    return a.number - b.number;
+                  });
+                  if (closedIssues.length > 0) {
+                    const issueLines = closedIssues.map((issue) => {
+                      return `- #${issue.number} ${issue.title}`;
+                    });
+                    issuesSection = issueLines.join('\n');
+                  }
+                }
+              }
+            }
+
+            const bodyLines = [
+              'Automated release PR from release branch.',
+              '',
+              `- Branch: \`${head}\``,
+              `- Version: \`${version}\``,
+              previousTag ? `- Previous release: \`${previousTag}\`` : '- Previous release: _none_',
+            ];
+
+            if (commitsSection) {
+              bodyLines.push('', '## Commits', commitsSection);
+            }
+
+            if (pullRequestsSection) {
+              bodyLines.push('', '## Merged Pull Requests', pullRequestsSection);
+            }
+
+            if (issuesSection) {
+              bodyLines.push('', '## Closed Issues', issuesSection);
+            }
+
+            const body = bodyLines.join('\n');
+
+            const { data: openPulls } = await github.rest.pulls.list({
+              owner,
+              repo,
+              state: 'open',
+              head: `${owner}:${head}`,
+              base,
+              per_page: 100,
+            });
+
+            if (openPulls.length > 0) {
+              const existingPull = openPulls[0];
+              await github.rest.pulls.update({
+                owner,
+                repo,
+                pull_number: existingPull.number,
+                title: `Release ${version}`,
+                body,
+              });
+              core.info(`Updated release PR: #${existingPull.number}`);
+              return;
+            }
+
+            const { data: pull } = await github.rest.pulls.create({
+              owner,
+              repo,
+              title: `Release ${version}`,
+              head,
+              base,
+              body,
+            });
+
+            core.info(`Created release PR: #${pull.number}`);
