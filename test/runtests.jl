@@ -1,5 +1,6 @@
 using Test
 using NNFoil
+using DelimitedFiles
 
 const AIRFOILS_DIR = joinpath(".", "airfoils")
 const CHOOSE_RANDOMLY = false  # "CI" in ARGS ? true : false
@@ -22,22 +23,32 @@ function select_cases(cases::AbstractVector{<:AbstractString})
 end
 
 include("utils.jl")
-include("python_wrapper.jl")
 
 @testset verbose = true "NNFoil.jl" begin
     @testset "Code analysis" begin
-        include("code_quality.jl")
+        import Aqua
+        import JET
+
+        @testset "Code quality (Aqua.jl)" begin
+            Aqua.test_all(NNFoil)
+        end
+
+        @testset "Code linting (JET.jl)" begin
+            JET.test_package(NNFoil; target_defined_modules = true)
+        end
     end
 
     @testset "Unit tests" begin
-        for file in sort(readdir(joinpath(@__DIR__, "unittests")))
+        for file in readdir(joinpath(@__DIR__, "unittests"); join = true, sort = true)
             endswith(file, ".jl") || continue
-            include(joinpath("unittests", file))
+            include(file)
         end
     end
 
     @testset verbose = true "Comparison against NeuralFoil (Python)" begin
-        include("test_kulfan_parameters.jl")
-        include("test_neural_network.jl")
+        for file in readdir(joinpath(@__DIR__, "comparative"); join = true, sort = true)
+            endswith(file, ".jl") || continue
+            include(file)
+        end
     end
 end

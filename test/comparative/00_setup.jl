@@ -3,16 +3,17 @@ try
     readdir(".CondaPkg")
 
     ENV["JULIA_CONDAPKG_BACKEND"] = "Null"
-    ENV["JULIA_PYTHONCALL_EXE"] = joinpath(pwd(), split("/.CondaPkg/.pixi/envs/default/bin/python", "/")...)
+    ENV["JULIA_PYTHONCALL_EXE"] = joinpath(
+        pwd(),
+        split("/.CondaPkg/.pixi/envs/default/bin/python", "/")...
+    )
 catch IOError
     # Otherwise create a new Python environment and install the necessary packages
     using CondaPkg
     CondaPkg.add_pip("aerosandbox")
 end
 
-
 using PythonCall
-
 
 macro wrap_pyfunction(mod, fname, jname)
     return quote
@@ -30,23 +31,19 @@ macro wrap_pyfunction(mod, fname, jname)
     end
 end
 
-
 @wrap_pyfunction "numpy" array py_array
 @wrap_pyfunction "numpy" genfromtxt py_genfromtxt
 @wrap_pyfunction "aerosandbox.geometry.airfoil.airfoil_families" get_kulfan_parameters py_get_kulfan_parameters
 @wrap_pyfunction "neuralfoil" get_aero_from_kulfan_parameters py_get_aero_from_kulfan_parameters
 
-
 function py_get_kulfan_from_coordinates(coordinates; normalize_coordinates = false)
     return py_get_kulfan_parameters(coordinates, normalize_coordinates = normalize_coordinates)
 end
-
 
 function py_get_kulfan_from_file(filepath; normalize_coordinates = false)
     coordinates = py_array(coordinates_from_file(filepath))
     return py_get_kulfan_from_coordinates(coordinates; normalize_coordinates)
 end
-
 
 function convert_kulfan_py2jl(params)
     upper_weights = pyconvert(Vector{Float64}, params["upper_weights"])

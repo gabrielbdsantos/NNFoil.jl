@@ -1,11 +1,7 @@
-using DelimitedFiles: readdlm
-using NNFoil: KulfanParameters, NeuralNetworkOutput
-
 import Base.isapprox
 import Base.-
 
-
-function -(a::KulfanParameters, b::KulfanParameters)
+function (-)(a::KulfanParameters, b::KulfanParameters)
     return KulfanParameters(
         upper_weights = a.upper_weights .- b.upper_weights,
         lower_weights = a.lower_weights .- a.lower_weights,
@@ -13,7 +9,6 @@ function -(a::KulfanParameters, b::KulfanParameters)
         trailing_edge_thickness = a.TE_thickness .- b.TE_thickness
     )
 end
-
 
 function isapprox(a::KulfanParameters, b::KulfanParameters; kwargs...)
     return all(
@@ -27,7 +22,6 @@ function isapprox(a::KulfanParameters, b::KulfanParameters; kwargs...)
         )
     )
 end
-
 
 function isapprox(a::NeuralNetworkOutput, b::NeuralNetworkOutput; kwargs...)
     return all(
@@ -43,6 +37,5 @@ function isapprox(a::NeuralNetworkOutput, b::NeuralNetworkOutput; kwargs...)
         )
     )
 end
-
 
 coordinates_from_file(filepath) = normalize_coordinates!(readdlm(filepath))
