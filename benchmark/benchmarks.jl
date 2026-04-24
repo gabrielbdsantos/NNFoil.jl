@@ -3,7 +3,7 @@ using NNFoil
 
 # NOTE: Benchmarks run against the 'xlarge' model to emulate a more realistic
 # scenario.
-const NETWORK_PARAMETERS = NNFoil.NeuralNetworkParameters(; model_size = :xsmall)
+const NETWORK_PARAMETERS = NNFoil.NeuralNetworkParameters(; model_size = :xlarge)
 const KULFAN_PARAMETERS = NNFoil.KulfanParameters(
     upper_weights = collect(0.1:0.1:0.8),
     lower_weights = collect(-0.05:-0.05:-0.4),
