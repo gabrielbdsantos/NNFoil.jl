@@ -80,28 +80,30 @@ Stores the aerodynamic coefficients predicted by the neural network.
 
 # Type Parameters
 
-- `V<:AbstractVector{<:Real}`
+- `T <: Real`
+- `C <: AbstractVector{Union{T, AbstractVector{T}}}`
 
 # Fields
 
-- `analysis_confidence::V`: confidence level of the neural network prediction.
-- `CL::V`: lift coefficient values.
-- `CD::V`: drag coefficient values.
-- `CM::V`: moment coefficient values.
-- `Top_Xtr::V`: transition location on the upper surface.
-- `Bot_Xtr::V`: transition location on the lower surface.
+- `analysis_confidence::C`: confidence level of the neural network prediction.
+- `CL::C`: lift coefficient values.
+- `CD::C`: drag coefficient values.
+- `CM::C`: moment coefficient values.
+- `Top_Xtr::C`: transition location on the upper surface.
+- `Bot_Xtr::C`: transition location on the lower surface.
 
 !!! note
+
     Boundary-layer related outputs are currently **not supported**. Support for
     these outputs is planned in a future version.
 """
-@kwdef struct NeuralNetworkOutput{V <: AbstractVector{<:Real}}
-    analysis_confidence::V
-    CL::V
-    CD::V
-    CM::V
-    Top_Xtr::V
-    Bot_Xtr::V
+@kwdef struct NeuralNetworkOutput{T <: Real, C <: Union{T, AbstractVector{T}}}
+    analysis_confidence::C
+    CL::C
+    CD::C
+    CM::C
+    Top_Xtr::C
+    Bot_Xtr::C
 end
 
 """
@@ -957,7 +959,7 @@ Convert a decoded output array into a `NeuralNetworkOutput` struct.
 
 - [`NeuralNetworkOutput`](@ref)
 """
-function pack_output(y)
+function pack_output(y::AbstractMatrix{<:Real})
     return @views NeuralNetworkOutput(
         analysis_confidence = y[1, :],
         CL = y[2, :],
@@ -965,6 +967,17 @@ function pack_output(y)
         CM = y[4, :],
         Top_Xtr = y[5, :],
         Bot_Xtr = y[6, :]
+    )
+end
+
+function pack_output(y::AbstractVector{<:Real})
+    return NeuralNetworkOutput(
+        analysis_confidence = y[1],
+        CL = y[2],
+        CD = y[3],
+        CM = y[4],
+        Top_Xtr = y[5],
+        Bot_Xtr = y[6],
     )
 end
 
