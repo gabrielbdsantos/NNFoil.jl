@@ -815,13 +815,25 @@ mean of the scaled input distribution.
 
 - `AbstractArray{<:Real}`
 """
-function squared_mahalanobis_distance(params::NeuralNetworkParameters, x)
+function squared_mahalanobis_distance(
+        params::NeuralNetworkParameters,
+        x::AbstractMatrix{<:Real}
+    )
     x_minus_mean = x .- params.mean_inputs_scaled
 
     return sum(
         x_minus_mean .* (params.inv_cov_inputs_scaled * x_minus_mean);
         dims = 1
     )'
+end
+
+function squared_mahalanobis_distance(
+        params::NeuralNetworkParameters,
+        x::AbstractVector{<:Real},
+    )
+    x_minus_mean = x .- params.mean_inputs_scaled
+
+    return LinearAlgebra.dot(x_minus_mean, params.inv_cov_inputs_scaled * x_minus_mean)
 end
 
 """
@@ -876,10 +888,23 @@ distance between the input features and the training data distribution.
 - The cache-based method avoids intermediate allocations and is preferred in
   performance-critical loops.
 """
-function confidence_correction!(y, x, network_parameters::NeuralNetworkParameters)
+function confidence_correction!(
+        y::AbstractMatrix{<:Real},
+        x::AbstractMatrix{<:Real},
+        network_parameters::NeuralNetworkParameters
+    )
     @views y[1, :] .-= (
         squared_mahalanobis_distance(network_parameters, x) ./ (2 * size(x, 1))
     )
+    return nothing
+end
+
+function confidence_correction!(
+        y::AbstractVector{<:Real},
+        x::AbstractVector{<:Real},
+        network_parameters::NeuralNetworkParameters,
+    )
+    y[1] -= squared_mahalanobis_distance(network_parameters, x) / (2 * length(x))
     return nothing
 end
 
