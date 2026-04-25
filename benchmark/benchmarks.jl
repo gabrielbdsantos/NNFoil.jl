@@ -11,6 +11,20 @@ const KULFAN_PARAMETERS = NNFoil.KulfanParameters(
     trailing_edge_thickness = 0.01,
 )
 
+function _make_case(n)
+    ALPHA = n > 1 ? collect(range(-8.0, 12.0; length = n)) : [0.0]
+    REYNOLDS = n > 1 ? collect(range(3.0e6, 8.0e6; length = n)) : [5.0e6]
+    FEATURES = NNFoil.build_features(KULFAN_PARAMETERS, ALPHA, REYNOLDS)
+
+    return (; ALPHA, REYNOLDS, FEATURES)
+end
+
+const CASES = (
+    "N=1" => _make_case(1),
+    "N=64" => _make_case(64),
+    "N=512" => _make_case(512),
+)
+
 const ALPHA = collect(range(-8.0, 12.0; length = 64))
 const REYNOLDS = collect(range(3.0e6, 8.0e6; length = length(ALPHA)))
 const FEATURES = NNFoil.build_features(KULFAN_PARAMETERS, ALPHA, REYNOLDS)
@@ -20,28 +34,47 @@ const SUITE = BenchmarkGroup()
 # End-to-end {{{
 # ----------------------------------------------------------------------
 SUITE["end_to_end"] = BenchmarkGroup()
+SUITE["end_to_end"]["evaluate_out_of_place"] = BenchmarkGroup()
+SUITE["end_to_end"]["evaluate_in_place"] = BenchmarkGroup()
 
-SUITE["end_to_end"]["evaluate_out_of_place"] = @benchmarkable(
-    NNFoil.evaluate(NETWORK_PARAMETERS, KULFAN_PARAMETERS, ALPHA, REYNOLDS),
+for (label, case) in CASES
+    SUITE["end_to_end"]["evaluate_out_of_place"][label] = @benchmarkable(
+        NNFoil.evaluate(NETWORK_PARAMETERS, KULFAN_PARAMETERS, $case.ALPHA, $case.REYNOLDS),
+        evals = 1,
+    )
+
+    SUITE["end_to_end"]["evaluate_in_place"][label] = @benchmarkable(
+        NNFoil.evaluate!(cache),
+        setup = (
+            cache = NNFoil.NeuralNetworkCache(
+                NETWORK_PARAMETERS,
+                KULFAN_PARAMETERS,
+                $case.ALPHA,
+                $case.REYNOLDS
+            )
+        ),
+        evals = 1,
+    )
+end
+
+SUITE["end_to_end"]["evaluate_out_of_place"]["scalar"] = @benchmarkable(
+    NNFoil.evaluate(NETWORK_PARAMETERS, KULFAN_PARAMETERS, 2.5, 5.0e6),
     evals = 1,
 )
 
-SUITE["end_to_end"]["evaluate_in_place"] = @benchmarkable(
+SUITE["end_to_end"]["evaluate_in_place"]["scalar"] = @benchmarkable(
     NNFoil.evaluate!(cache),
     setup = (
-        cache = NNFoil.NeuralNetworkCache(
-            NETWORK_PARAMETERS,
-            KULFAN_PARAMETERS,
-            ALPHA,
-            REYNOLDS,
-        )
+        cache = NNFoil.NeuralNetworkCache(NETWORK_PARAMETERS, KULFAN_PARAMETERS, 2.5, 5.0e6)
     ),
     evals = 1,
 )
+
 # }}}
 # Features {{{
 # ----------------------------------------------------------------------
 SUITE["features"] = BenchmarkGroup()
+SUITE["features"]["update_features_vector_vector"] = BenchmarkGroup()
 
 SUITE["features"]["build_features_vector_vector"] = @benchmarkable(
     NNFoil.build_features(KULFAN_PARAMETERS, ALPHA, REYNOLDS),
@@ -53,11 +86,15 @@ SUITE["features"]["build_features_scalar_scalar"] = @benchmarkable(
     evals = 1,
 )
 
-SUITE["features"]["update_features_vector_vector"] = @benchmarkable(
-    NNFoil.update_features!(cache, KULFAN_PARAMETERS, ALPHA, REYNOLDS),
-    setup = (cache = NNFoil.NeuralNetworkCache(NETWORK_PARAMETERS, copy(FEATURES))),
-    evals = 1,
-)
+for (label, case) in CASES
+    SUITE["features"]["update_features_vector_vector"][label] = @benchmarkable(
+        NNFoil.update_features!(cache, KULFAN_PARAMETERS, $case.ALPHA, $case.REYNOLDS),
+        setup = (
+            cache = NNFoil.NeuralNetworkCache(NETWORK_PARAMETERS, copy($case.FEATURES))
+        ),
+        evals = 1,
+    )
+end
 
 SUITE["features"]["update_features_scalar_scalar"] = @benchmarkable(
     NNFoil.update_features!(cache, KULFAN_PARAMETERS, 2.5, 5.0e6),
@@ -71,21 +108,25 @@ SUITE["features"]["update_features_scalar_scalar"] = @benchmarkable(
 # Kernels {{{
 # ----------------------------------------------------------------------
 SUITE["kernels"] = BenchmarkGroup()
+SUITE["kernels"]["forward_out_of_place"] = BenchmarkGroup()
+SUITE["kernels"]["forward_in_place"] = BenchmarkGroup()
 
-SUITE["kernels"]["forward_out_of_place"] = @benchmarkable(
-    NNFoil.forward(NETWORK_PARAMETERS, FEATURES),
-    evals = 1,
-)
+for (label, case) in CASES
+    SUITE["kernels"]["forward_out_of_place"][label] = @benchmarkable(
+        NNFoil.forward(NETWORK_PARAMETERS, $case.FEATURES),
+        evals = 1,
+    )
 
-SUITE["kernels"]["forward_in_place"] = @benchmarkable(
-    NNFoil.forward!(y, NETWORK_PARAMETERS, tmp),
-    setup = (
-        cache_tuple = NNFoil.allocate_forward_cache(NETWORK_PARAMETERS, copy(FEATURES));
-        y = cache_tuple[1];
-        tmp = cache_tuple[2]
-    ),
-    evals = 1,
-)
+    SUITE["kernels"]["forward_in_place"][label] = @benchmarkable(
+        NNFoil.forward!(y, NETWORK_PARAMETERS, tmp),
+        setup = (
+            cache_tuple = NNFoil.allocate_forward_cache(NETWORK_PARAMETERS, copy($case.FEATURES));
+            y = cache_tuple[1];
+            tmp = cache_tuple[2]
+        ),
+        evals = 1,
+    )
+end
 
 SUITE["kernels"]["squared_mahalanobis_distance_out_of_place"] = @benchmarkable(
     NNFoil.squared_mahalanobis_distance(NETWORK_PARAMETERS, FEATURES),
@@ -102,7 +143,7 @@ SUITE["kernels"]["squared_mahalanobis_distance_in_place"] = @benchmarkable(
     evals = 1,
 )
 
-SUITE["kernels"]["confidence_correction_cache_path"] = @benchmarkable(
+SUITE["kernels"]["confidence_correction!"] = @benchmarkable(
     NNFoil.confidence_correction!(y, FEATURES, cache),
     setup = (
         y = NNFoil.forward(NETWORK_PARAMETERS, FEATURES);
@@ -167,7 +208,7 @@ SUITE["kernels"]["pack_output!"] = @benchmarkable(
 # ----------------------------------------------------------------------
 SUITE["pipelines"] = BenchmarkGroup()
 
-SUITE["pipelines"]["postprocess_flip_fuse_decode"] = @benchmarkable(
+SUITE["pipelines"]["flip_fuse_decode"] = @benchmarkable(
     begin
         NNFoil.flip_outputs!(y_flipped, tmp)
         NNFoil.fuse_predictions!(y, y_flipped)
