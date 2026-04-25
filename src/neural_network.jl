@@ -242,7 +242,17 @@ function build_features(
         xtr_lower = 1
     )
     aoa, Re = _promote_alpha_Reynolds(alpha, Reynolds)
-    return _build_features(kulfan_parameters, aoa, Re, n_crit, xtr_upper, xtr_lower)
+
+    T = promote_type(
+        eltype(kulfan_parameters.upper_weights),
+        eltype(aoa),
+        eltype(Re),
+        eltype(n_crit),
+        eltype(xtr_upper),
+        eltype(xtr_lower),
+    )
+
+    return _build_features(T, kulfan_parameters, aoa, Re, n_crit, xtr_upper, xtr_lower)
 end
 
 _promote_alpha_Reynolds(alpha::Real, Reynolds::Real) = (alpha, Reynolds)
@@ -264,6 +274,7 @@ function _promote_alpha_Reynolds(
 end
 
 function _build_features(
+        T::Type,
         kulfan_parameters::KulfanParameters,
         alpha::AbstractVector{<:Real},
         Reynolds::AbstractVector{<:Real},
@@ -273,22 +284,28 @@ function _build_features(
     )
     L = length(alpha)
 
-    return vcat(
-        repeat(kulfan_parameters.upper_weights, outer = (1, L)),
-        repeat(kulfan_parameters.lower_weights, outer = (1, L)),
-        fill(kulfan_parameters.leading_edge_weight, (1, L)),
-        fill(kulfan_parameters.trailing_edge_thickness * 50, (1, L)),
-        reshape(sind.(2 .* alpha), 1, :),
-        reshape(cosd.(alpha), 1, :),
-        reshape(1 .- cosd.(alpha) .^ 2, 1, :),
-        reshape((log.(Reynolds) .- 12.5) ./ 3.5, 1, :),
-        fill((n_crit - 9) / 4.5, (1, L)),
-        fill(xtr_upper, (1, L)),
-        fill(xtr_lower, (1, L))
+    alpha_t = T.(alpha)
+    Reynolds_t = T.(Reynolds)
+
+    return Matrix{T}(
+        vcat(
+            repeat(T.(kulfan_parameters.upper_weights), outer = (1, L)),
+            repeat(T.(kulfan_parameters.lower_weights), outer = (1, L)),
+            fill(T(kulfan_parameters.leading_edge_weight), (1, L)),
+            fill(T(kulfan_parameters.trailing_edge_thickness) * T(50), (1, L)),
+            reshape(sind.(T(2) .* alpha_t), 1, :),
+            reshape(cosd.(alpha_t), 1, :),
+            reshape(one(T) .- cosd.(alpha_t) .^ 2, 1, :),
+            reshape((log.(Reynolds_t) .- T(12.5)) ./ T(3.5), 1, :),
+            fill((T(n_crit) - T(9)) / T(4.5), (1, L)),
+            fill(T(xtr_upper), (1, L)),
+            fill(T(xtr_lower), (1, L)),
+        )
     )
 end
 
 function _build_features(
+        T::Type,
         kulfan_parameters::KulfanParameters,
         alpha::Real,
         Reynolds::Real,
@@ -296,18 +313,22 @@ function _build_features(
         xtr_upper,
         xtr_lower
     )
-    return [
-        kulfan_parameters.upper_weights
-        kulfan_parameters.lower_weights
-        kulfan_parameters.leading_edge_weight
-        kulfan_parameters.trailing_edge_thickness * 50.0
-        sind(2.0 * alpha)
-        cosd(alpha)
-        1.0 - cosd(alpha)^2
-        (log(Reynolds) - 12.5) / 3.5
-        (n_crit - 9.0) / 4.5
-        xtr_upper
-        xtr_lower
+    alpha_t = T(alpha)
+    Reynolds_t = T(Reynolds)
+    c = cosd(alpha_t)
+
+    return T[
+        T.(kulfan_parameters.upper_weights)
+        T.(kulfan_parameters.lower_weights)
+        T(kulfan_parameters.leading_edge_weight)
+        T(kulfan_parameters.trailing_edge_thickness) * T(50)
+        sind(T(2) * alpha_t)
+        c
+        one(T) - c^2
+        (log(Reynolds_t) - T(12.5)) / T(3.5)
+        (T(n_crit) - T(9)) / T(4.5)
+        T(xtr_upper)
+        T(xtr_lower)
     ]
 end
 
