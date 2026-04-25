@@ -1,0 +1,37 @@
+[tasks.test]
+description = "Run tests"
+usage = """
+flag "-U --update" help="Update the test environment before running tests"
+flag "--ci"
+"""
+run = """
+{% if usage.update %}
+julia --project -e 'import Pkg; Pkg.update()'
+julia --project=test -e 'import Pkg; Pkg.update()'
+{% endif %}
+julia --project -e 'import Pkg; Pkg.test(; test_args=ARGS)' {%- if usage.ci %} CI {%- endif -%}
+"""
+
+[tasks.benchmark]
+description = "Run benchmark using AirspeedVelocity.jl"
+usage = """
+flag "--rev <rev>" help="Revisions to test" default="main,dirty"
+flag "--mode <mode>" help="Table mode(s)" default="time,memory"
+flag "--filter <filter>" help="Filter the benchmarks to run" default=""
+flag "--output-dir <output-dir>" help="Output directory" default="/tmp"
+flag "--no-ratio" help="Do not show the ratio"
+"""
+run = """
+benchpkg \
+  --rev {{ usage.rev }} \
+  --script benchmark/benchmarks.jl \
+  --output-dir {{ usage.output_dir }} \
+  --dont-print \
+  {% if usage.filter %} --filter {{ usage.filter }} {% endif %}
+
+benchpkgtable \
+  --rev {{ usage.rev }} \
+  --input-dir {{ usage.output_dir }} \
+  --mode {{ usage.mode }} \
+  {% if not usage.ratio -%} --ratio {%- endif -%}
+"""
