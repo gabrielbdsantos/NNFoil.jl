@@ -27,6 +27,11 @@
         @test cache.x_flipped === x_flipped_ref
         @test cache.tmp_x[1] === cache.x
         @test cache.tmp_x_flipped[1] === cache.x_flipped
+        if !(cache.x_both === nothing)
+            C = size(cache.x, 2)
+            @test (@view cache.x_both[:, 1:C]) == cache.x
+            @test (@view cache.x_both[:, (C + 1):(2C)]) == cache.x_flipped
+        end
 
         x_expected = NNFoil.build_features(
             UNIT_KULFAN,
@@ -48,6 +53,11 @@
             xtr_lower,
         )
         @test cache.x == x_expected
+        if !(cache.x_both === nothing)
+            C = size(cache.x, 2)
+            @test (@view cache.x_both[:, 1:C]) == cache.x
+            @test (@view cache.x_both[:, (C + 1):(2C)]) == cache.x_flipped
+        end
 
         x_flipped_expected = copy(cache.x)
         NNFoil.flip_inputs!(x_flipped_expected)
@@ -72,6 +82,11 @@
         )
         NNFoil.update_features!(cache, x_new)
         @test cache.x == x_new
+        if !(cache.x_both === nothing)
+            C = size(cache.x, 2)
+            @test (@view cache.x_both[:, 1:C]) == cache.x
+            @test (@view cache.x_both[:, (C + 1):(2C)]) == cache.x_flipped
+        end
 
         x_flipped_expected = copy(x_new)
         NNFoil.flip_inputs!(x_flipped_expected)

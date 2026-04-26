@@ -8,6 +8,18 @@
     @test cache.tmp_x_flipped[1] === cache.x_flipped
     @test length(cache.outputs.CL) == size(x, 2)
 
+    if !(cache.x_both === nothing)
+        C = size(cache.x, 2)
+
+        @test size(cache.x_both, 2) == 2C
+        @test (@view cache.x_both[:, 1:C]) == cache.x
+        @test (@view cache.x_both[:, (C + 1):(2C)]) == cache.x_flipped
+
+        @test cache.tmp_x_both[1] === cache.x_both
+        @test (@view cache.y_both[:, 1:C]) == cache.y
+        @test (@view cache.y_both[:, (C + 1):(2C)]) == cache.y_flipped
+    end
+
     x_flipped_expected = copy(x)
     NNFoil.flip_inputs!(x_flipped_expected)
     @test cache.x_flipped == x_flipped_expected
