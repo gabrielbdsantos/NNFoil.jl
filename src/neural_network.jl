@@ -129,18 +129,60 @@ network evaluations.
 @concrete struct NeuralNetworkCache
     network_parameters <: NeuralNetworkParameters
     outputs <: NeuralNetworkOutput
+    # -------------
     y
     y_flipped
+    y_both
+    # -------------
     x
     x_flipped
+    x_both
+    # -------------
     tmp_x
     tmp_x_flipped
+    tmp_x_both
+    # -------------
     tmp_x_smd1
     tmp_x_smd2
     tmp_y_smd
 end
 
-function NeuralNetworkCache(params::NeuralNetworkParameters, x)
+function NeuralNetworkCache(params::NeuralNetworkParameters, x0::AbstractMatrix)
+    (L, C) = (size(x0, 1), size(x0, 2))
+    x_both = similar(x0, L, 2C)
+
+    x = @view x_both[:, 1:C]
+    x_flipped = @view x_both[:, (C + 1):end]
+    copyto!(x, x0)
+    copyto!(x_flipped, x0)
+    flip_inputs!(x_flipped)
+
+    y_both, tmp_x_both = allocate_forward_cache(params, x_both)
+
+    y = @view y_both[:, 1:C]
+    y_flipped = @view y_both[:, (C + 1):end]
+
+    tmp_x = [@view tmp_x_both[i][:, 1:C] for i in eachindex(tmp_x_both)]
+    tmp_x_flipped = [@view tmp_x_both[i][:, (C + 1):(2C)] for i in eachindex(tmp_x_both)]
+
+    tmp_x_smd1 = similar(x)
+    tmp_x_smd2 = similar(x)
+    tmp_y_smd = similar(x, size(x, 2), 1)
+
+    output = NeuralNetworkOutput(
+        (similar(y[1, :]) for _ in 1:fieldcount(NeuralNetworkOutput))...
+    )
+
+    return NeuralNetworkCache(
+        params, output,
+        y, y_flipped, y_both,
+        x, x_flipped, x_both,
+        tmp_x, tmp_x_flipped, tmp_x_both,
+        tmp_x_smd1, tmp_x_smd2, tmp_y_smd
+    )
+end
+
+function NeuralNetworkCache(params::NeuralNetworkParameters, x::AbstractVector)
     x_flipped = copy(x)
     flip_inputs!(x_flipped)
 
@@ -156,17 +198,11 @@ function NeuralNetworkCache(params::NeuralNetworkParameters, x)
     )
 
     return NeuralNetworkCache(
-        params,
-        output,
-        y,
-        y_flipped,
-        x,
-        x_flipped,
-        tmp_x,
-        tmp_x_flipped,
-        tmp_x_smd1,
-        tmp_x_smd2,
-        tmp_y_smd
+        params, output,
+        y, y_flipped, nothing,
+        x, x_flipped, nothing,
+        tmp_x, tmp_x_flipped, nothing,
+        tmp_x_smd1, tmp_x_smd2, tmp_y_smd,
     )
 end
 
@@ -784,10 +820,16 @@ Evaluate the neural network in-place using a preallocated cache.
 """
 function evaluate!(cache::NeuralNetworkCache)
     @views begin
-        forward!(cache.y, cache.network_parameters, cache.tmp_x)
-        confidence_correction!(cache.y, cache.x, cache)
+        # NOTE: a two-pass approach is faster for scalar inputs, whereas a
+        # concatenated pass is faster for batched inputs.
+        if cache.x isa AbstractVector
+            forward!(cache.y, cache.network_parameters, cache.tmp_x)
+            forward!(cache.y_flipped, cache.network_parameters, cache.tmp_x_flipped)
+        else
+            forward!(cache.y_both, cache.network_parameters, cache.tmp_x_both)
+        end
 
-        forward!(cache.y_flipped, cache.network_parameters, cache.tmp_x_flipped)
+        confidence_correction!(cache.y, cache.x, cache)
         confidence_correction!(cache.y_flipped, cache.x_flipped, cache)
 
         flip_outputs!(cache.y_flipped, cache.tmp_y_smd[:, 1])

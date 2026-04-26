@@ -221,4 +221,39 @@ SUITE["pipelines"]["flip_fuse_decode"] = @benchmarkable(
     ),
     evals = 1,
 )
+
+SUITE["pipelines"]["forward_two_pass_vs_concat"] = BenchmarkGroup()
+SUITE["pipelines"]["forward_two_pass_vs_concat"]["split_pass"] = BenchmarkGroup()
+SUITE["pipelines"]["forward_two_pass_vs_concat"]["concat_pass"] = BenchmarkGroup()
+
+for (label, case) in CASES
+    SUITE["pipelines"]["forward_two_pass_vs_concat"]["split_pass"][label] = @benchmarkable(
+        begin
+            NNFoil.forward!(y, NETWORK_PARAMETERS, tmp)
+            NNFoil.forward!(y_flipped, NETWORK_PARAMETERS, tmp_flipped)
+        end,
+        setup = (
+            case = $case;
+            x = copy(case.FEATURES);
+            x_flipped = copy(case.FEATURES);
+            NNFoil.flip_inputs!(x_flipped);
+            (y, tmp) = NNFoil.allocate_forward_cache(NETWORK_PARAMETERS, x);
+            (y_flipped, tmp_flipped) = NNFoil.allocate_forward_cache(NETWORK_PARAMETERS, x_flipped)
+        ),
+        evals = 1,
+    )
+
+    SUITE["pipelines"]["forward_two_pass_vs_concat"]["concat_pass"][label] = @benchmarkable(
+        NNFoil.forward!(y, NETWORK_PARAMETERS, tmp),
+        setup = (
+            case = $case;
+            x = copy(case.FEATURES);
+            x_flipped = copy(case.FEATURES);
+            NNFoil.flip_inputs!(x_flipped);
+            x_both = hcat(x, x_flipped);
+            (y, tmp) = NNFoil.allocate_forward_cache(NETWORK_PARAMETERS, x_both)
+        ),
+        evals = 1,
+    )
+end
 # }}}
