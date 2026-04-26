@@ -392,7 +392,7 @@ _build_features(
     xtr_upper,
     xtr_lower,
 ) = _build_features(
-    kulfan_parameters, alpha, fill(Reynolds, length(alpha)), n_crit, xtr_upper, xtr_lower,
+    kulfan_parameters, alpha, Fill(Reynolds, length(alpha)), n_crit, xtr_upper, xtr_lower
 )
 
 _build_features(
@@ -403,8 +403,7 @@ _build_features(
     xtr_upper,
     xtr_lower,
 ) = _build_features(
-    kulfan_parameters, fill(alpha, length(Reynolds)), Reynolds, n_crit, xtr_upper,
-    xtr_lower,
+    kulfan_parameters, Fill(alpha, length(Reynolds)), Reynolds, n_crit, xtr_upper, xtr_lower
 )
 
 _validate_alpha_Reynolds(::Real, ::Real) = nothing

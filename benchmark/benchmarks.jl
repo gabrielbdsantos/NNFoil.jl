@@ -81,6 +81,16 @@ SUITE["features"]["build_features_vector_vector"] = @benchmarkable(
     evals = 1,
 )
 
+SUITE["features"]["build_features_scalar_vector"] = @benchmarkable(
+    NNFoil.build_features(KULFAN_PARAMETERS, 2.5, REYNOLDS),
+    evals = 1,
+)
+
+SUITE["features"]["build_features_vector_scalar"] = @benchmarkable(
+    NNFoil.build_features(KULFAN_PARAMETERS, ALPHA, 5.0e6),
+    evals = 1,
+)
+
 SUITE["features"]["build_features_scalar_scalar"] = @benchmarkable(
     NNFoil.build_features(KULFAN_PARAMETERS, 2.5, 5.0e6),
     evals = 1,

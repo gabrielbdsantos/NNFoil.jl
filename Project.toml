@@ -5,12 +5,14 @@ version = "0.3.0"
 
 [deps]
 ConcreteStructs = "2569d6c7-a4a2-43d3-a901-331e8e4be471"
+FillArrays = "1a297f60-69ca-5386-bcde-b61e274b549b"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 LsqFit = "2fda8390-95c7-5789-9bda-21331edee243"
 NPZ = "15e1cf62-19b3-5cfa-8e77-841668bca605"
 
 [compat]
 ConcreteStructs = "0.2.3"
+FillArrays = "1.16.0"
 LinearAlgebra = "1.10.0"
 LsqFit = "0.15.1"
 NPZ = "0.4.3"

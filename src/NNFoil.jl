@@ -8,6 +8,7 @@ import NPZ
 import LinearAlgebra
 import LsqFit
 
+using FillArrays: Fill
 using ConcreteStructs: @concrete
 
 const DATA_PATH = joinpath(@__DIR__, "..", "data")
