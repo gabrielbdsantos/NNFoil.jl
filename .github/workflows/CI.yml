@@ -43,4 +43,4 @@ jobs:
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
         with:
-          test_args: ${{ (github.event_name == 'push' && startsWith(github.ref_name, 'release/')) && 'CI full' || 'CI' }}
+          test_args: ${{ (github.event_name == 'push' && (startsWith(github.ref_name, 'release/') || startsWith(github.ref_name, 'v'))) && 'CI full' || 'CI' }}
