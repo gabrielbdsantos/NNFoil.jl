@@ -277,40 +277,57 @@ function build_features(
         xtr_upper = 1,
         xtr_lower = 1
     )
-    aoa, Re = _promote_alpha_Reynolds(alpha, Reynolds)
+    _validate_alpha_Reynolds(alpha, Reynolds)
+    return _build_features(kulfan_parameters, alpha, Reynolds, n_crit, xtr_upper, xtr_lower)
+end
 
+function _build_features(
+        kulfan_parameters::KulfanParameters,
+        alpha::Real,
+        Reynolds::Real,
+        n_crit,
+        xtr_upper,
+        xtr_lower,
+    )
     T = promote_type(
         eltype(kulfan_parameters.upper_weights),
-        eltype(aoa),
-        eltype(Re),
+        eltype(alpha),
+        eltype(Reynolds),
         eltype(n_crit),
         eltype(xtr_upper),
         eltype(xtr_lower),
     )
 
-    return _build_features(T, kulfan_parameters, aoa, Re, n_crit, xtr_upper, xtr_lower)
-end
+    x = Vector{T}(undef, 25)
 
-_promote_alpha_Reynolds(alpha::Real, Reynolds::Real) = (alpha, Reynolds)
-_promote_alpha_Reynolds(alpha::AbstractVector{<:Real}, Reynolds::Real) = (
-    alpha, fill(Reynolds, length(alpha)),
-)
-_promote_alpha_Reynolds(alpha::Real, Reynolds::AbstractVector{<:Real}) = (
-    fill(alpha, length(Reynolds)), Reynolds,
-)
-function _promote_alpha_Reynolds(
-        alpha::AbstractVector{<:Real},
-        Reynolds::AbstractVector{<:Real}
-    )
-    length(alpha) == length(Reynolds) || throw(
-        DimensionMismatch("`alpha` and `Reynolds` must have the same length.")
-    )
+    upper = kulfan_parameters.upper_weights
+    lower = kulfan_parameters.lower_weights
 
-    return alpha, Reynolds
+    a = T(alpha)
+    re = T(Reynolds)
+    c = cosd(a)
+
+    @inbounds begin
+        for j in 1:8
+            x[j] = T(upper[j])
+            x[8 + j] = T(lower[j])
+        end
+
+        x[17] = T(kulfan_parameters.leading_edge_weight)
+        x[18] = T(kulfan_parameters.trailing_edge_thickness) * T(50)
+        x[19] = sind(T(2) * a)
+        x[20] = c
+        x[21] = one(T) - c^2
+        x[22] = (log(re) - T(12.5)) / T(3.5)
+        x[23] = (T(n_crit) - T(9)) / T(4.5)
+        x[24] = T(xtr_upper)
+        x[25] = T(xtr_lower)
+    end
+
+    return x
 end
 
 function _build_features(
-        T::Type,
         kulfan_parameters::KulfanParameters,
         alpha::AbstractVector{<:Real},
         Reynolds::AbstractVector{<:Real},
@@ -320,52 +337,87 @@ function _build_features(
     )
     L = length(alpha)
 
-    alpha_t = T.(alpha)
-    Reynolds_t = T.(Reynolds)
-
-    return Matrix{T}(
-        vcat(
-            repeat(T.(kulfan_parameters.upper_weights), outer = (1, L)),
-            repeat(T.(kulfan_parameters.lower_weights), outer = (1, L)),
-            fill(T(kulfan_parameters.leading_edge_weight), (1, L)),
-            fill(T(kulfan_parameters.trailing_edge_thickness) * T(50), (1, L)),
-            reshape(sind.(T(2) .* alpha_t), 1, :),
-            reshape(cosd.(alpha_t), 1, :),
-            reshape(one(T) .- cosd.(alpha_t) .^ 2, 1, :),
-            reshape((log.(Reynolds_t) .- T(12.5)) ./ T(3.5), 1, :),
-            fill((T(n_crit) - T(9)) / T(4.5), (1, L)),
-            fill(T(xtr_upper), (1, L)),
-            fill(T(xtr_lower), (1, L)),
-        )
+    T = promote_type(
+        eltype(kulfan_parameters.upper_weights),
+        eltype(alpha),
+        eltype(Reynolds),
+        eltype(n_crit),
+        eltype(xtr_upper),
+        eltype(xtr_lower),
     )
+
+    x = Matrix{T}(undef, 25, L)
+
+    upper = kulfan_parameters.upper_weights
+    lower = kulfan_parameters.lower_weights
+
+    le = T(kulfan_parameters.leading_edge_weight)
+    te = T(kulfan_parameters.trailing_edge_thickness) * T(50)
+    ncrit_scaled = (T(n_crit) - T(9)) / T(4.5)
+    xtr_u = T(xtr_upper)
+    xtr_l = T(xtr_lower)
+    c2 = T(2)
+    c12_5 = T(12.5)
+    c3_5 = T(3.5)
+
+    @inbounds for i in axes(x, 2)
+        for j in 1:8
+            x[j, i] = T(upper[j])
+            x[8 + j, i] = T(lower[j])
+        end
+
+        a = T(alpha[i])
+        re = T(Reynolds[i])
+        c = cosd(a)
+
+        x[17, i] = le
+        x[18, i] = te
+        x[19, i] = sind(c2 * a)
+        x[20, i] = c
+        x[21, i] = one(T) - c^2
+        x[22, i] = (log(re) - c12_5) / c3_5
+        x[23, i] = ncrit_scaled
+        x[24, i] = xtr_u
+        x[25, i] = xtr_l
+    end
+
+    return x
 end
 
-function _build_features(
-        T::Type,
-        kulfan_parameters::KulfanParameters,
-        alpha::Real,
-        Reynolds::Real,
-        n_crit,
-        xtr_upper,
-        xtr_lower
-    )
-    alpha_t = T(alpha)
-    Reynolds_t = T(Reynolds)
-    c = cosd(alpha_t)
+_build_features(
+    kulfan_parameters::KulfanParameters,
+    alpha::AbstractVector{<:Real},
+    Reynolds::Real,
+    n_crit,
+    xtr_upper,
+    xtr_lower,
+) = _build_features(
+    kulfan_parameters, alpha, fill(Reynolds, length(alpha)), n_crit, xtr_upper, xtr_lower,
+)
 
-    return T[
-        T.(kulfan_parameters.upper_weights)
-        T.(kulfan_parameters.lower_weights)
-        T(kulfan_parameters.leading_edge_weight)
-        T(kulfan_parameters.trailing_edge_thickness) * T(50)
-        sind(T(2) * alpha_t)
-        c
-        one(T) - c^2
-        (log(Reynolds_t) - T(12.5)) / T(3.5)
-        (T(n_crit) - T(9)) / T(4.5)
-        T(xtr_upper)
-        T(xtr_lower)
-    ]
+_build_features(
+    kulfan_parameters::KulfanParameters,
+    alpha::Real,
+    Reynolds::AbstractVector{<:Real},
+    n_crit,
+    xtr_upper,
+    xtr_lower,
+) = _build_features(
+    kulfan_parameters, fill(alpha, length(Reynolds)), Reynolds, n_crit, xtr_upper,
+    xtr_lower,
+)
+
+_validate_alpha_Reynolds(::Real, ::Real) = nothing
+_validate_alpha_Reynolds(::AbstractVector{<:Real}, ::Real) = nothing
+_validate_alpha_Reynolds(::Real, ::AbstractVector{<:Real}) = nothing
+function _validate_alpha_Reynolds(
+        alpha::AbstractVector{<:Real},
+        Reynolds::AbstractArray{<:Real}
+    )
+    length(alpha) == length(Reynolds) || throw(
+        DimensionMismatch("`alpha` and `Reynolds` must have the same length.")
+    )
+    return nothing
 end
 
 """
