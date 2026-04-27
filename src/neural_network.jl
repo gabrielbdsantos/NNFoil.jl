@@ -731,39 +731,23 @@ function forward!(y, network_parameters, x)
 end
 
 """
-    swish(x; beta=1)
+    swish(x, β=1)
 
-Apply the Swish activation function elementwise.
-
-# Arguments
-
-- `x`: Input value.
-- `beta::Real=1`: Slope parameter controlling smoothness.
-
-# Returns
-
-- Scalar or Array of the same shape as `x`: Activated values.
+Swish activation function.
 """
-@inline swish(x; beta = 1) = x / (1 + exp(-beta * x))
+@inline swish(x, β = one(x)) = x * inv(one(x) + exp(-β * x))
 
 """
-    sigmoid(x::T; ln_eps=log(10 / floatmax(eltype(T)))) where {T}
+    sigmoid(x)
 
 Sigmoid activation function with input clipping for numerical stability.
-
-# Arguments
-
-- `x::T`: Input value.
-- `ln_eps::Real=log(10 / floatmax(eltype(T)))`: Logarithmic bound used to clip
-  input values for stability.
-
-# Returns
-
-- Scalar or Array of the same shape as `x` with values in the range (0, 1).
 """
-@inline function sigmoid(x::T; ln_eps = log(10 / floatmax(eltype(T)))) where {T}
-    return inv(one(T) + exp(-clamp(x, ln_eps, -ln_eps)))
+@inline function sigmoid(x)
+    ln_eps = _ln_eps(x)
+    return inv(one(x) + exp(-clamp(x, ln_eps, -ln_eps)))
 end
+
+@inline _ln_eps(::T) where {T <: Real} = log(T(10) / floatmax(T))
 
 """
     allocate_forward_cache(network_parameters, x)
