@@ -682,12 +682,8 @@ given input `x`.
 - `network_parameters::NeuralNetworkParameters`: pretrained network weights and
   biases.
 - `x::AbstractArray{<:Real}`: Input data of size (25, :).
-
-# Returns
-
-- `AbstractMatrix{<:Real}`
 """
-function forward(network_parameters::NeuralNetworkParameters, x::AbstractArray{<:Real})
+function forward(network_parameters::NeuralNetworkParameters, x::AbstractVector{<:Real})
     weights = network_parameters.weights
     biases = network_parameters.biases
 
@@ -700,6 +696,12 @@ function forward(network_parameters::NeuralNetworkParameters, x::AbstractArray{<
     end
 
     return x
+end
+
+function forward(network_parameters::NeuralNetworkParameters, x::AbstractMatrix{<:Real})
+    y, tmp = allocate_forward_cache(network_parameters, x)
+    forward!(y, network_parameters, tmp)
+    return y
 end
 
 """
