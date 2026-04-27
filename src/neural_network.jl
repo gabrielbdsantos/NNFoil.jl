@@ -840,7 +840,41 @@ transformations to produce physically meaningful aerodynamic coefficients.
 
 - [`NeuralNetworkOutput`](@ref): Predicted aerodynamic coefficients.
 """
-function evaluate(network_parameters, x)
+function evaluate(
+        network_parameters::NeuralNetworkParameters,
+        x::AbstractMatrix{<:Real}
+    )
+    C = size(x, 2)
+    x_both = similar(x, size(x, 1), 2C)
+
+    @views begin
+        x_view = x_both[:, 1:C]
+        x_flipped = x_both[:, (C + 1):(2C)]
+
+        copyto!(x_view, x)
+        copyto!(x_flipped, x)
+        flip_inputs!(x_flipped)
+
+        y_both = forward(network_parameters, x_both)
+        y = y_both[:, 1:C]
+        y_flipped = y_both[:, (C + 1):(2C)]
+
+        confidence_correction!(y, x_view, network_parameters)
+        confidence_correction!(y_flipped, x_flipped, network_parameters)
+
+        tmp = Vector{eltype(y_flipped)}(undef, size(y_flipped, 2))
+        flip_outputs!(y_flipped, tmp)
+        fuse_predictions!(y, y_flipped)
+        decode_outputs!(y)
+
+        return pack_output(y)
+    end
+end
+
+function evaluate(
+        network_parameters::NeuralNetworkParameters,
+        x::AbstractVector{<:Real}
+    )
     y = forward(network_parameters, x)
     confidence_correction!(y, x, network_parameters)
 
@@ -849,7 +883,7 @@ function evaluate(network_parameters, x)
     y_flipped = forward(network_parameters, x_flipped)
     confidence_correction!(y_flipped, x_flipped, network_parameters)
 
-    tmp = y_flipped[6, :]
+    tmp = Vector{eltype(y_flipped)}(undef, size(y_flipped, 2))
     @views begin
         flip_outputs!(y_flipped, tmp)
         fuse_predictions!(y, y_flipped)
