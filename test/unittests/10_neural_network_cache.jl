@@ -16,8 +16,10 @@
         @test (@view cache.x_both[:, (C + 1):(2C)]) == cache.x_flipped
 
         @test cache.tmp_x_both[1] === cache.x_both
-        @test (@view cache.y_both[:, 1:C]) == cache.y
-        @test (@view cache.y_both[:, (C + 1):(2C)]) == cache.y_flipped
+        @test isequal(@view(cache.y_both[:, 1:C]), cache.y)
+        @test isequal(@view(cache.y_both[:, (C + 1):(2C)]), cache.y_flipped)
+        @test parent(cache.y) === cache.y_both
+        @test parent(cache.y_flipped) === cache.y_both
     end
 
     x_flipped_expected = copy(x)
