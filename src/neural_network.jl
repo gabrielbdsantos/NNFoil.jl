@@ -780,13 +780,42 @@ Allocate output and activation buffers for in-place neural network evaluation.
 """
 function allocate_forward_cache(
         network_parameters::NeuralNetworkParameters,
-        x::AbstractVecOrMat{<:Real}
+        x::AbstractVector{<:Real}
     )
-    y = zeros(size(network_parameters.weights[end], 1), size(x, 2))
-    z(w) = x isa AbstractVector ? zeros(size(w, 1)) : zeros(size(w, 1), size(x, 2))
+    weights = network_parameters.weights
+    T = promote_type(eltype(weights[1]), eltype(x))
+    n_layers = length(weights)
 
-    return (y, [[x]; [z(w) for w in network_parameters.weights]])
+    y = Matrix{T}(undef, size(weights[end], 1), 1)
+    tmp = Vector{Vector{T}}(undef, n_layers + 1)
+
+    tmp[1] = x isa Vector{T} ? x : Vector{T}(x)
+    @inbounds for i in 1:n_layers
+        tmp[i + 1] = Vector{T}(undef, size(weights[i], 1))
+    end
+
+    return y, tmp
 end
+
+function allocate_forward_cache(
+        network_parameters::NeuralNetworkParameters,
+        x::AbstractMatrix{<:Real}
+    )
+    weights = network_parameters.weights
+    T = promote_type(eltype(weights[1]), eltype(x))
+    n_layers = length(weights)
+
+    y = Matrix{T}(undef, size(weights[end], 1), size(x, 2))
+    tmp = Vector{Matrix{T}}(undef, n_layers + 1)
+
+    tmp[1] = x isa Matrix{T} ? x : Matrix{T}(x)
+    @inbounds for i in 1:n_layers
+        tmp[i + 1] = Matrix{T}(undef, size(weights[i], 1), size(x, 2))
+    end
+
+    return y, tmp
+end
+
 # }}}
 # Evaluation {{{
 # ----------------------------------------------------------------------
