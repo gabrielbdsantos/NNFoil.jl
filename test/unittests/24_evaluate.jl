@@ -22,6 +22,11 @@
     @test all(0 .<= out.Top_Xtr .<= 1)
     @test all(0 .<= out.Bot_Xtr .<= 1)
 
+    @testset "supported output channels" begin
+        @test size(cache.y, 1) == NNFoil.SUPPORTED_OUTPUT_CHANNELS
+        @test size(cache.y_flipped, 1) == NNFoil.SUPPORTED_OUTPUT_CHANNELS
+    end
+
     @testset "zero allocation" begin
         cache = NNFoil.NeuralNetworkCache(
             UNIT_NETWORK_PARAMETERS,

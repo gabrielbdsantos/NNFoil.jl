@@ -1,3 +1,8 @@
+"""
+Currently supported output channels. See [`NeuralNetworkOutput`](@ref).
+"""
+const SUPPORTED_OUTPUT_CHANNELS = 6
+
 # Types {{{
 # ----------------------------------------------------------------------
 """
@@ -58,18 +63,24 @@ function NeuralNetworkParameters(; model_size = :xlarge, T = Float64)
         joinpath(DATA_PATH, "nn-" * string(model_size) * ".npz")
     )
 
+    weights = [
+        convert.(T, network_parameters["net.$(id).weight"])
+            for id in 0:2:(length(network_parameters) - 2)
+    ]
+    biases = [
+        convert.(T, network_parameters["net.$(id).bias"])
+            for id in 0:2:(length(network_parameters) - 2)
+    ]
+
+    weights[end] = weights[end][1:SUPPORTED_OUTPUT_CHANNELS, :]
+    biases[end] = biases[end][1:SUPPORTED_OUTPUT_CHANNELS]
+
     return NeuralNetworkParameters(
         convert.(T, scaled_input_distribution["mean_inputs_scaled"]),
         convert.(T, scaled_input_distribution["cov_inputs_scaled"]),
         convert.(T, scaled_input_distribution["inv_cov_inputs_scaled"]),
-        [
-            convert.(T, network_parameters["net.$(id).weight"])
-                for id in 0:2:(length(network_parameters) - 2)
-        ],
-        [
-            convert.(T, network_parameters["net.$(id).bias"])
-                for id in 0:2:(length(network_parameters) - 2)
-        ]
+        weights,
+        biases
     )
 end
 
