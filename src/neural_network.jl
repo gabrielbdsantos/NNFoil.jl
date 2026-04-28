@@ -859,8 +859,12 @@ function evaluate(
         y = y_both[:, 1:C]
         y_flipped = y_both[:, (C + 1):(2C)]
 
-        confidence_correction!(y, x_view, network_parameters)
-        confidence_correction!(y_flipped, x_flipped, network_parameters)
+        tmp1 = similar(x_view)
+        tmp2 = similar(x_view)
+        tmp_y = similar(y, size(y, 2), 1)
+
+        confidence_correction!(y, x_view, network_parameters, tmp_y, tmp1, tmp2)
+        confidence_correction!(y_flipped, x_flipped, network_parameters, tmp_y, tmp1, tmp2)
 
         tmp = Vector{eltype(y_flipped)}(undef, size(y_flipped, 2))
         flip_outputs!(y_flipped, tmp)
@@ -1049,6 +1053,25 @@ function confidence_correction!(
     @views y[1, :] .-= (
         squared_mahalanobis_distance(network_parameters, x) ./ (2 * size(x, 1))
     )
+    return nothing
+end
+
+function confidence_correction!(
+        y::AbstractMatrix{<:Real},
+        x::AbstractMatrix{<:Real},
+        network_parameters::NeuralNetworkParameters,
+        tmp_y,
+        tmp1,
+        tmp2
+    )
+    squared_mahalanobis_distance!(
+        tmp_y,
+        network_parameters,
+        x,
+        tmp1,
+        tmp2
+    )
+    @views y[1, :] .-= tmp_y[:, 1] ./ (2 * size(x, 1))
     return nothing
 end
 
