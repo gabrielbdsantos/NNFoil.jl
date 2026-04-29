@@ -466,16 +466,8 @@ function update_features!(cache::NeuralNetworkCache, x)
     return nothing
 end
 
-update_features!(
-    cache::NeuralNetworkCache, kulfan_parameters::KulfanParameters,
-    alpha, Reynolds;
-    n_crit = 9, xtr_upper = 1, xtr_lower = 1
-) = update_features!(
-    cache; kulfan_parameters, alpha, Reynolds, n_crit, xtr_upper, xtr_lower
-)
-
 function update_features!(
-        cache::NeuralNetworkCache;
+        cache::NeuralNetworkCache,
         kulfan_parameters::KulfanParameters,
         alpha,
         Reynolds,

@@ -17,7 +17,7 @@
             cache,
             UNIT_KULFAN,
             UNIT_ALPHA,
-            UNIT_REYNOLDS_VECTOR;
+            UNIT_REYNOLDS_VECTOR,
             n_crit,
             xtr_upper,
             xtr_lower,
@@ -44,10 +44,10 @@
         @test cache.x == x_expected
 
         NNFoil.update_features!(
-            cache;
-            kulfan_parameters = UNIT_KULFAN,
-            alpha = UNIT_ALPHA,
-            Reynolds = UNIT_REYNOLDS_VECTOR,
+            cache,
+            UNIT_KULFAN,
+            UNIT_ALPHA,
+            UNIT_REYNOLDS_VECTOR,
             n_crit,
             xtr_upper,
             xtr_lower,
