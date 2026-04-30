@@ -33,7 +33,7 @@ end
 
 include("utils.jl")
 
-@testset verbose = true "NNFoil.jl" begin
+@testset failfast = true verbose = true "NNFoil.jl" begin
     if RUN_CODE_QUALITY
         @testset "Code analysis" begin
             import Aqua
