@@ -17,6 +17,34 @@ struct KulfanParameters{Vu, Vl, Tl, Tt}
     leading_edge_weight::Tl
     trailing_edge_thickness::Tt
 
+    @doc """
+        KulfanParameters(
+            upper_weights,
+            lower_weights,
+            leading_edge_weight,
+            trailing_edge_thickness,
+        )
+
+    Validate coefficient lengths and build `KulfanParameters`.
+
+    # Arguments
+
+    - `upper_weights::AbstractVector{<:Real}`: Upper-surface Bernstein
+      coefficients. Must have length 8.
+    - `lower_weights::AbstractVector{<:Real}`: Lower-surface Bernstein
+      coefficients. Must have length 8.
+    - `leading_edge_weight::Real`: Leading-edge parameter.
+    - `trailing_edge_thickness::Real`: Trailing-edge thickness parameter.
+
+    # Returns
+
+    - [`KulfanParameters`](@ref)
+
+    # Throws
+
+    - `DimensionMismatch`: If `upper_weights` or `lower_weights` does not have
+      length 8.
+    """
     function KulfanParameters(
             upper_weights::Vu,
             lower_weights::Vl,
@@ -58,7 +86,7 @@ end
 """
     KulfanParameters(coordinates)
 
-Fits Kulfan (CST) parameters to a set of airfoil coordinates.
+Fit Kulfan (CST) parameters to a set of airfoil coordinates.
 
 This method assumes that the input coordinates follow the **Selig ordering**,
 i.e., starting at the trailing edge, proceeding along the upper surface to the
@@ -119,13 +147,17 @@ end
 """
     normalize_coordinates!(coordinates)
 
-Normalize the input coordinates in place so that the x values lie within the
-unit interval [0, 1].
+Normalize input coordinates in place using chord-based scaling.
 
 # Arguments
 
 - `coordinates::AbstractMatrix`: Matrix of airfoil coordinates with columns
   representing the x and y values.
+
+# Notes
+
+- The implementation shifts x by `minimum(x)` and divides the full coordinate
+  matrix by `maximum(x)`, so y is scaled by the same chord length.
 
 !!! warning
     The current normalization is a temporary workaround and may be revised in
@@ -151,6 +183,11 @@ Split airfoil coordinates into upper and lower surfaces.
 
 - `(upper, lower)`: Two matrices containing the coordinates of the upper and
   lower surfaces, respectively.
+
+# Notes
+
+- For even-length coordinate arrays, the leading-edge point is not duplicated
+  in both outputs.
 """
 @inline function split_upper_lower_surfaces(coordinates)
     _, n = findmin(@view coordinates[:, 1])
@@ -172,7 +209,7 @@ Evaluate the Bernstein basis polynomial of degree `n` and index `v` at `x`.
 
 # Returns
 
-- Array of the same shape as `x`: Values of the Bernstein polynomial.
+- Values of the Bernstein polynomial with the same shape semantics as `x`.
 """
 @inline function bernstein(x, v, n)
     return @. binomial(n, v) * x^v * (1 - x)^(n - v)
@@ -188,11 +225,11 @@ N2=1.0.
 
 # Arguments
 
-- `x`: Nondimensional chordwise coordinates [0--1].
+- `x`: Nondimensional chordwise coordinates in `[0, 1]`.
 
 # Returns
 
-- Array of the same shape as `x`: Values of the class function.
+- Values of the class function with the same shape semantics as `x`.
 """
 @inline function class_function(x)
     return @. sqrt(x) * (1 - x)
@@ -210,7 +247,7 @@ Kulfan shape function defined as a weighted sum of Bernstein polynomials.
 
 # Returns
 
-- Same shape as `x`: Values of the shape function.
+- Values of the shape function with the same shape semantics as `x`.
 """
 @inline function shape_function(x, coefficients)
     S = similar(x) .= 0
@@ -225,7 +262,7 @@ end
 """
     cst(x, coefficients, leading_edge_weight, trailing_edge_thickness)
 
-CST (Class--Shape Transformation) surface parametrization.
+CST (Class-Shape Transformation) surface parametrization.
 
 # Arguments
 
@@ -236,8 +273,7 @@ CST (Class--Shape Transformation) surface parametrization.
 
 # Returns
 
-- Same shape as `x`: Airfoil surface coordinates defined by the CST
-  parametrization.
+- Airfoil surface coordinates with the same shape semantics as `x`.
 """
 function cst(x, coefficients, leading_edge_weight, trailing_edge_thickness)
     N = length(coefficients)

@@ -41,12 +41,12 @@ struct NeuralNetworkParameters{
 end
 
 """
-    NeuralNetworkParameters(; model_size=:xlarge, T=Float64)
+    NeuralNetworkParameters(; model_size = :xlarge, T = Float64)
 
 Convenience constructor that loads and converts the pretrained neural network
 parameters.
 
-# Keyword arguments
+# Keyword Arguments
 
 - `model_size::Symbol`: Size of the pretrained model parameters to load.
 - `T::Type`: Numerical type to which all loaded arrays will be converted.
@@ -85,14 +85,14 @@ function NeuralNetworkParameters(; model_size = :xlarge, T = Float64)
 end
 
 """
-    NeuralNetworkOutput{V}
+    NeuralNetworkOutput{T, C}
 
 Stores the aerodynamic coefficients predicted by the neural network.
 
 # Type Parameters
 
 - `T <: Real`
-- `C <: AbstractVector{Union{T, AbstractVector{T}}}`
+- `C <: Union{T, AbstractVector{T}}`
 
 # Fields
 
@@ -125,8 +125,9 @@ network evaluations.
 
 # Fields
 
-- `parameters<:NeuralNetworkParameters`: pretrained network parameters.
-- `output<:NeuralNetworkOutput`: output buffers for aerodynamic coefficients.
+- `network_parameters<:NeuralNetworkParameters`: pretrained network
+  parameters.
+- `outputs<:NeuralNetworkOutput`: output buffers for aerodynamic coefficients.
 - `y`: network outputs for the original inputs.
 - `y_flipped`: network outputs for symmetry-flipped inputs.
 - `x`: original input features.
@@ -158,6 +159,25 @@ network evaluations.
     tmp_y_smd
 end
 
+"""
+    NeuralNetworkCache(params, x0)
+
+Allocate shared original/flipped buffers for batched evaluation.
+
+# Arguments
+
+- `params::NeuralNetworkParameters`: Pretrained network parameters.
+- `x0::AbstractMatrix`: Input feature matrix of size `(25, N)`.
+
+# Returns
+
+- [`NeuralNetworkCache`](@ref)
+
+# Notes
+
+- Allocates shared buffers for original and flipped inputs and stores
+  views into those buffers.
+"""
 function NeuralNetworkCache(params::NeuralNetworkParameters, x0::AbstractMatrix)
     (L, C) = (size(x0, 1), size(x0, 2))
     x_both = similar(x0, L, 2C)
@@ -193,6 +213,24 @@ function NeuralNetworkCache(params::NeuralNetworkParameters, x0::AbstractMatrix)
     )
 end
 
+"""
+    NeuralNetworkCache(params, x)
+
+Allocate separate original/flipped forward caches for single-sample evaluation.
+
+# Arguments
+
+- `params::NeuralNetworkParameters`: Pretrained network parameters.
+- `x::AbstractVector`: Input feature vector of length 25.
+
+# Returns
+
+- [`NeuralNetworkCache`](@ref)
+
+# Notes
+
+- Allocates separate forward caches for original and flipped inputs.
+"""
 function NeuralNetworkCache(params::NeuralNetworkParameters, x::AbstractVector)
     x_flipped = copy(x)
     flip_inputs!(x_flipped)
@@ -217,6 +255,30 @@ function NeuralNetworkCache(params::NeuralNetworkParameters, x::AbstractVector)
     )
 end
 
+"""
+    NeuralNetworkCache(network_parameters, kulfan_parameters, alpha, Reynolds;
+        n_crit = 9, xtr_upper = 1, xtr_lower = 1)
+
+Build a cache from generated features and preallocated evaluation buffers.
+
+# Arguments
+
+- `network_parameters::NeuralNetworkParameters`: Pretrained network
+  parameters.
+- `kulfan_parameters::KulfanParameters`: Kulfan geometry parameters.
+- `alpha`: Angle of attack in degrees (scalar or vector).
+- `Reynolds`: Reynolds number (scalar or vector).
+
+# Keyword Arguments
+
+- `n_crit::Real=9`: Critical amplification factor.
+- `xtr_upper::Real=1`: Forced transition location on the upper surface.
+- `xtr_lower::Real=1`: Forced transition location on the lower surface.
+
+# Returns
+
+- [`NeuralNetworkCache`](@ref)
+"""
 function NeuralNetworkCache(
         network_parameters::NeuralNetworkParameters,
         kulfan_parameters::KulfanParameters,
@@ -237,7 +299,7 @@ end
 # ----------------------------------------------------------------------
 """
     build_features(kulfan_parameters, alpha, Reynolds;
-        n_crit=9, xtr_upper=1, xtr_lower=1)
+        n_crit = 9, xtr_upper = 1, xtr_lower = 1)
 
 Construct a `25 x N` neural-network input feature array expected by the neural
 network from Kulfan shape parameters and flow conditions.
@@ -660,7 +722,7 @@ end
 # Neural network {{{
 # ----------------------------------------------------------------------
 """
-    forward(network_parameters::NetworkParameters, x::AbstractMatrix{<:Real})
+    forward(network_parameters::NeuralNetworkParameters, x)
 
 Evaluate the neural network using the pretrained network parameters on the
 given input `x`.
@@ -669,7 +731,13 @@ given input `x`.
 
 - `network_parameters::NeuralNetworkParameters`: pretrained network weights and
   biases.
-- `x::AbstractArray{<:Real}`: Input data of size (25, :).
+- `x::AbstractVector{<:Real}` or `x::AbstractMatrix{<:Real}`: Input data of
+  size `(25,)` or `(25, N)`.
+
+# Returns
+
+- `AbstractVector{<:Real}` or `AbstractMatrix{<:Real}`: Raw network outputs
+  with one column per input sample.
 """
 function forward(network_parameters::NeuralNetworkParameters, x::AbstractVector{<:Real})
     weights = network_parameters.weights
@@ -703,12 +771,8 @@ Evaluate the neural network in-place using preallocated buffers.
   predictions.
 - `network_parameters::NeuralNetworkParameters`: Pretrained network weights
   and biases.
-- `x::AbstractVector{<:}`: Temporary cache, where `x[1]` contains the input
+- `x`: Temporary cache, where `x[1]` contains the input
   features and subsequent entries store intermediate layer outputs.
-
-# Notes
-
-- Use [`allocate_forward_cache`](@ref) to create `y` and `x` caches.
 """
 function forward!(y, network_parameters, x)
     weights = network_parameters.weights
@@ -732,7 +796,7 @@ function forward!(y, network_parameters, x)
 end
 
 """
-    swish(x, β=1)
+    swish(x, β = 1)
 
 Swish activation function.
 """
@@ -765,7 +829,7 @@ Allocate output and activation buffers for in-place neural network evaluation.
 # Returns
 
 - `y`: Output array matching the network output dimensions.
-- `x`: Vector of arrays storing temporary cache, where `cache[1]` corresponds
+- `tmp`: Vector of arrays storing temporary cache, where `tmp[1]` corresponds
   to the input and subsequent entries store intermediate results.
 """
 function allocate_forward_cache(
@@ -810,7 +874,7 @@ end
 # Evaluation {{{
 # ----------------------------------------------------------------------
 """
-    evaluate(network_parameters, x) -> NeuralNetworkOutput
+    evaluate(network_parameters, x)
 
 Evaluate the neural network for the input features `x` using the pretrained
 parameters `network_parameters`. It then applies post-processing
@@ -911,11 +975,6 @@ Evaluate the neural network in-place using a preallocated cache.
 - `cache::NeuralNetworkCache`: Cache containing input features, intermediate
   buffers, and output storage.
 
-# Notes
-
-- Build the cache using the [`NeuralNetworkCache`](@ref) constructor.
-- Use [`update_features!`](@ref) to modify inputs before evaluation.
-
 # See also
 
 - [`evaluate`](@ref): out-of-place version that allocates outputs and
@@ -945,20 +1004,22 @@ function evaluate!(cache::NeuralNetworkCache)
 end
 
 """
-    squared_mahalanobis_distance(params::NetworkParameters, x)
+    squared_mahalanobis_distance(params::NeuralNetworkParameters, x)
 
 Compute the squared Mahalanobis distance between the input array `x` and the
 mean of the scaled input distribution.
 
 # Arguments
 
-- `params::NetworkParameters`: pretrained neural network parameters containing
+- `params::NeuralNetworkParameters`: pretrained neural network parameters
+  containing
   the mean and inverse covariance of the scaled input distribution.
 - `x::AbstractArray{<:Real}`: Input samples.
 
 # Returns
 
-- `AbstractArray{<:Real}`
+- `Vector{<:Real}` for matrix inputs.
+- `<:Real` for vector inputs.
 """
 function squared_mahalanobis_distance(
         params::NeuralNetworkParameters,
@@ -982,7 +1043,9 @@ function squared_mahalanobis_distance(
 end
 
 """
-    squared_mahalanobis_distance!(y, params::NetworkParameters, x, tmp1, tmp2)
+    squared_mahalanobis_distance!(
+        y, params::NeuralNetworkParameters, x, tmp1, tmp2
+    )
 
 In-place, non-allocating version of [`squared_mahalanobis_distance`](@ref).
 
@@ -991,8 +1054,10 @@ mean of the scaled input distribution.
 
 # Arguments
 
-- `y::AbstractVector{<:Real}`: Output vector of size `size(x, 2)`.
-- `params::NetworkParameters`: pretrained neural network parameters containing
+- `y`: Workspace output with shape `(size(x, 2), 1)`. Distances are written to
+  the first column.
+- `params::NeuralNetworkParameters`: pretrained neural network parameters
+  containing
   the mean and inverse covariance of the scaled input distribution.
 - `x::AbstractArray{<:Real}`: Input samples.
 - `tmp1::AbstractArray{<:Real}`: Temporary array the same size as `x`.
@@ -1115,11 +1180,6 @@ Average predictions from original and symmetry-flipped inputs.
 
 - `y::AbstractArray{<:Real}`: Output array that will store the fused result.
 - `y_flipped::AbstractArray{<:Real}`: Output array from flipped inputs.
-
-# Notes
-
-- The result overwrites `y`.
-- Both arrays must have identical sizes.
 """
 function fuse_predictions!(y, y_flipped)
     y .= y .+ y_flipped
@@ -1157,7 +1217,7 @@ function decode_outputs!(y)
 end
 
 """
-    pack_output(y) -> NeuralNetworkOutput
+    pack_output(y)
 
 Convert a decoded output array into a `NeuralNetworkOutput` struct.
 
