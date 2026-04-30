@@ -480,27 +480,11 @@ function update_features!(
             "`x` must be of size (25, *). An array of size $(size(cache.x)) was given."
         )
     )
-    L = size(cache.x, 2)
 
-    upper = kulfan_parameters.upper_weights
-    lower = kulfan_parameters.lower_weights
-
-    le = kulfan_parameters.leading_edge_weight
-    te = kulfan_parameters.trailing_edge_thickness * 50
-    n_crit_scaled = (n_crit - 9) / 4.5
-
-    @inbounds for i in 1:L
-        for j in 1:8
-            cache.x[j, i] = upper[j]
-            cache.x[8 + j, i] = lower[j]
-        end
-
-        cache.x[17, i] = le
-        cache.x[18, i] = te
-    end
-
+    T = eltype(cache.x)
+    _update_kulfan_parameters!(cache.x, kulfan_parameters)
     _update_flow_features!(
-        cache.x, alpha, Reynolds, L, n_crit_scaled, xtr_upper, xtr_lower
+        cache.x, alpha, Reynolds, (T(n_crit) - T(9)) / T(4.5), T(xtr_upper), T(xtr_lower)
     )
 
     copyto!(cache.x_flipped, cache.x)
@@ -509,18 +493,36 @@ function update_features!(
     return nothing
 end
 
+function _update_kulfan_parameters!(
+        x::AbstractVecOrMat{T},
+        kulfan_parameters::KulfanParameters
+    ) where {T <: Real}
+
+    @inbounds for i in axes(x, 2)
+        for j in 1:8
+            x[j, i] = T(kulfan_parameters.upper_weights[j])
+            x[8 + j, i] = T(kulfan_parameters.lower_weights[j])
+        end
+
+        x[17, i] = T(kulfan_parameters.leading_edge_weight)
+        x[18, i] = T(kulfan_parameters.trailing_edge_thickness) * T(50)
+    end
+
+    return nothing
+end
+
 function _update_flow_features!(
         x::AbstractVecOrMat{<:Real},
         alpha::Real,
         Reynolds::Real,
-        L::Integer,
         n_crit_scaled,
         xtr_upper,
         xtr_lower
     )
-    L == 1 || throw(
+    size(x, 2) == 1 || throw(
         DimensionMismatch(
-            "`x` has $L columns, but scalar `alpha` and scalar `Reynolds` define a single sample."
+            "`x` has $(size(x, 2)) columns, but scalar `alpha` and" *
+                " scalar `Reynolds` define a single sample."
         )
     )
 
@@ -535,18 +537,18 @@ function _update_flow_features!(
         x::AbstractVecOrMat{<:Real},
         alpha::AbstractVector{<:Real},
         Reynolds::Real,
-        L::Integer,
         n_crit_scaled,
         xtr_upper,
         xtr_lower
     )
-    length(alpha) == L || throw(
+    length(alpha) == size(x, 2) || throw(
         DimensionMismatch(
-            "`alpha` must have length $L to match `x`, got length $(length(alpha))."
+            "`alpha` must have length $(size(x, 2)) to match `x`," *
+                " got length $(length(alpha))."
         )
     )
 
-    @inbounds for i in 1:L
+    @inbounds for i in axes(x, 2)
         _write_flow_column!(x, i, alpha[i], Reynolds, n_crit_scaled, xtr_upper, xtr_lower)
     end
 
@@ -557,18 +559,18 @@ function _update_flow_features!(
         x::AbstractVecOrMat{<:Real},
         alpha::Real,
         Reynolds::AbstractVector{<:Real},
-        L::Integer,
         n_crit_scaled,
         xtr_upper,
         xtr_lower
     )
-    length(Reynolds) == L || throw(
+    length(Reynolds) == size(x, 2) || throw(
         DimensionMismatch(
-            "`Reynolds` must have length $L to match `x`, got length $(length(Reynolds))."
+            "`Reynolds` must have length $(size(x, 2)) to match `x`," *
+                " got length $(length(Reynolds))."
         )
     )
 
-    @inbounds for i in 1:L
+    @inbounds for i in axes(x, 2)
         _write_flow_column!(x, i, alpha, Reynolds[i], n_crit_scaled, xtr_upper, xtr_lower)
     end
 
@@ -579,7 +581,6 @@ function _update_flow_features!(
         x::AbstractVecOrMat{<:Real},
         alpha::AbstractVector{<:Real},
         Reynolds::AbstractVector{<:Real},
-        L::Integer,
         n_crit_scaled,
         xtr_upper,
         xtr_lower
@@ -587,13 +588,14 @@ function _update_flow_features!(
     length(alpha) == length(Reynolds) || throw(
         DimensionMismatch("`alpha` and `Reynolds` must have the same length.")
     )
-    length(alpha) == L || throw(
+    length(alpha) == size(x, 2) || throw(
         DimensionMismatch(
-            "`alpha` and `Reynolds` must have length $L to match `x`, got length $(length(alpha))."
+            "`alpha` and `Reynolds` must have length $(size(x, 2)) to match `x`," *
+                " got length $(length(alpha))."
         )
     )
 
-    @inbounds for i in 1:L
+    @inbounds for i in axes(x, 2)
         _write_flow_column!(
             x, i, alpha[i], Reynolds[i], n_crit_scaled, xtr_upper, xtr_lower
         )
@@ -603,19 +605,20 @@ function _update_flow_features!(
 end
 
 @inline function _write_flow_column!(
-        x,
-        i::Integer,
-        alpha,
-        Reynolds,
-        n_crit_scaled,
-        xtr_upper,
-        xtr_lower
-    )
+        x::AbstractVecOrMat{T},
+        i::Int,
+        alpha::T,
+        Reynolds::T,
+        n_crit_scaled::T,
+        xtr_upper::T,
+        xtr_lower::T
+    ) where {T <: Real}
     c = cosd(alpha)
+
     x[19, i] = sind(2 * alpha)
     x[20, i] = c
-    x[21, i] = 1 - c^2
-    x[22, i] = (log(Reynolds) - 12.5) / 3.5
+    x[21, i] = one(T) - c^2
+    x[22, i] = (log(Reynolds) - T(12.5)) / T(3.5)
     x[23, i] = n_crit_scaled
     x[24, i] = xtr_upper
     x[25, i] = xtr_lower
