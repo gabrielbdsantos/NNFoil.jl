@@ -22,4 +22,18 @@
         fitted.trailing_edge_thickness;
     ]
     @test all(isfinite, all_params)
+
+    @test_throws DimensionMismatch NNFoil.KulfanParameters(
+        upper_weights = ones(7),
+        lower_weights = ones(8),
+        leading_edge_weight = UNIT_KULFAN.leading_edge_weight,
+        trailing_edge_thickness = UNIT_KULFAN.trailing_edge_thickness,
+    )
+
+    @test_throws DimensionMismatch NNFoil.KulfanParameters(
+        upper_weights = ones(8),
+        lower_weights = ones(7),
+        leading_edge_weight = UNIT_KULFAN.leading_edge_weight,
+        trailing_edge_thickness = UNIT_KULFAN.trailing_edge_thickness,
+    )
 end

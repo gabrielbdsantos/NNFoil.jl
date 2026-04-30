@@ -485,13 +485,6 @@ function update_features!(
     upper = kulfan_parameters.upper_weights
     lower = kulfan_parameters.lower_weights
 
-    length(upper) == 8 || throw(
-        DimensionMismatch("`kulfan_parameters.upper_weights` must have length 8.")
-    )
-    length(lower) == 8 || throw(
-        DimensionMismatch("`kulfan_parameters.lower_weights` must have length 8.")
-    )
-
     le = kulfan_parameters.leading_edge_weight
     te = kulfan_parameters.trailing_edge_thickness * 50
     n_crit_scaled = (n_crit - 9) / 4.5

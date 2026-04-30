@@ -131,20 +131,6 @@
             UNIT_REYNOLDS_VECTOR[1:3],
         )
 
-        bad_upper = NNFoil.KulfanParameters(
-            upper_weights = ones(7),
-            lower_weights = ones(8),
-            leading_edge_weight = UNIT_KULFAN.leading_edge_weight,
-            trailing_edge_thickness = UNIT_KULFAN.trailing_edge_thickness,
-        )
-
-        @test_throws DimensionMismatch NNFoil.update_features!(
-            cache,
-            bad_upper,
-            UNIT_ALPHA,
-            UNIT_REYNOLDS_SCALAR,
-        )
-
         @test_throws MethodError NNFoil.update_features!(
             unit_feature_matrix(3);
             kulfan_parameters = UNIT_KULFAN,

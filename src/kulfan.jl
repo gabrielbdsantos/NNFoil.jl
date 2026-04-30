@@ -11,11 +11,48 @@ Parameter container for the Kulfan (CST) airfoil shape parameterization.
   thickness/rounding.
 - `trailing_edge_thickness::Tt`: Scalar trailing-edge thickness parameter.
 """
-@kwdef struct KulfanParameters{Vu, Vl, Tl, Tt}
+struct KulfanParameters{Vu, Vl, Tl, Tt}
     upper_weights::Vu
     lower_weights::Vl
     leading_edge_weight::Tl
     trailing_edge_thickness::Tt
+
+    function KulfanParameters(
+            upper_weights::Vu,
+            lower_weights::Vl,
+            leading_edge_weight::Tl,
+            trailing_edge_thickness::Tt
+        ) where {
+            Vu <: AbstractVector{<:Real},
+            Vl <: AbstractVector{<:Real},
+            Tl <: Real,
+            Tt <: Real,
+        }
+        length(upper_weights) == 8 ||
+            throw(DimensionMismatch("`upper_weights` must have length 8."))
+
+        length(lower_weights) == 8 ||
+            throw(DimensionMismatch("`lower_weights` must have length 8."))
+
+        return new{Vu, Vl, Tl, Tt}(
+            upper_weights,
+            lower_weights,
+            leading_edge_weight,
+            trailing_edge_thickness
+        )
+    end
+
+    KulfanParameters(;
+        upper_weights,
+        lower_weights,
+        leading_edge_weight,
+        trailing_edge_thickness
+    ) = KulfanParameters(
+        upper_weights,
+        lower_weights,
+        leading_edge_weight,
+        trailing_edge_thickness
+    )
 end
 
 """
@@ -27,7 +64,8 @@ This method assumes that the input coordinates follow the **Selig ordering**,
 i.e., starting at the trailing edge, proceeding along the upper surface to the
 leading edge, and returning along the lower surface. The number of Bernstein
 weights per surface is currently fixed internally at eight, following the
-implementation used in [NeuralFoil](https://github.com/peterdsharpe/NeuralFoil).
+implementation used in
+[NeuralFoil](https://github.com/peterdsharpe/NeuralFoil).
 
 # Arguments
 
