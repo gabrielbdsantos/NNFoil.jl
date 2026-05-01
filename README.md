@@ -85,6 +85,16 @@ evaluate!(cache)
 analysis_updated = cache.outputs
 ```
 
+## AD compatibility
+
+An example comparing gradients from `ForwardDiff.jl` against
+`FiniteDiff.jl` for both `evaluate` and `evaluate!` is available in
+`examples/example03_forwarddiff.jl`. Run it with the test environment:
+
+```bash
+julia examples/example03_forwarddiff.jl
+```
+
 ## Citing
 
 If you use NNFoil.jl in your research, please cite both the
