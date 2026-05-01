@@ -27,6 +27,14 @@
         @test size(x_matrix) == (25, 2)
         @test x_matrix[19, 2] ≈ sind(20.0)
 
+        Reynolds_vec = [2.0e6, 4.0e6, 8.0e6]
+        x_real_alpha = NNFoil.build_features(UNIT_SYNTH_KULFAN, 10.0, Reynolds_vec)
+        x_ref = NNFoil.build_features(UNIT_SYNTH_KULFAN, fill(10.0, length(Reynolds_vec)), Reynolds_vec)
+
+        @test size(x_real_alpha) == (25, length(Reynolds_vec))
+        @test x_real_alpha ≈ x_ref
+        @test all(x_real_alpha[19, :] .≈ sind(20.0))
+
         @test_throws DimensionMismatch NNFoil.build_features(
             UNIT_SYNTH_KULFAN,
             [0.0, 1.0],

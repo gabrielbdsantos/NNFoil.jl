@@ -64,6 +64,45 @@
         @test cache.x_flipped == x_flipped_expected
     end
 
+    @testset "cache update with scalar alpha/Reynolds" begin
+        cache_scalar = NNFoil.NeuralNetworkCache(
+            UNIT_NETWORK_PARAMETERS,
+            UNIT_KULFAN,
+            UNIT_ALPHA[1],
+            UNIT_REYNOLDS_SCALAR,
+        )
+
+        alpha_scalar = 2.0
+        Reynolds_scalar = 4.0e6
+        NNFoil.update_features!(cache_scalar, UNIT_KULFAN, alpha_scalar, Reynolds_scalar)
+
+        x_expected = NNFoil.build_features(UNIT_KULFAN, alpha_scalar, Reynolds_scalar)
+        @test cache_scalar.x == x_expected
+
+        x_flipped_expected = copy(x_expected)
+        NNFoil.flip_inputs!(x_flipped_expected)
+        @test cache_scalar.x_flipped == x_flipped_expected
+    end
+
+    @testset "cache update with scalar alpha and vector Reynolds" begin
+        cache = NNFoil.NeuralNetworkCache(
+            UNIT_NETWORK_PARAMETERS,
+            UNIT_KULFAN,
+            UNIT_ALPHA,
+            UNIT_REYNOLDS_SCALAR,
+        )
+
+        alpha_scalar = 1.5
+        NNFoil.update_features!(cache, UNIT_KULFAN, alpha_scalar, UNIT_REYNOLDS_VECTOR)
+
+        x_expected = NNFoil.build_features(UNIT_KULFAN, alpha_scalar, UNIT_REYNOLDS_VECTOR)
+        @test cache.x == x_expected
+
+        x_flipped_expected = copy(x_expected)
+        NNFoil.flip_inputs!(x_flipped_expected)
+        @test cache.x_flipped == x_flipped_expected
+    end
+
     @testset "cache update from feature matrix" begin
         cache = NNFoil.NeuralNetworkCache(
             UNIT_NETWORK_PARAMETERS,
