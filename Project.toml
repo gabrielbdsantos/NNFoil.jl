@@ -1,7 +1,7 @@
 name = "NNFoil"
 uuid = "5d96e3f7-5e7b-44ae-828e-526bf7f0e78d"
 authors = ["Gabriel B. dos Santos <gabriel.bertacco@unesp.br>"]
-version = "0.3.1"
+version = "0.3.2"
 
 [deps]
 ConcreteStructs = "2569d6c7-a4a2-43d3-a901-331e8e4be471"
