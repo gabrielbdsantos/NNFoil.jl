@@ -90,10 +90,7 @@ Fit Kulfan (CST) parameters to a set of airfoil coordinates.
 
 This method assumes that the input coordinates follow the **Selig ordering**,
 i.e., starting at the trailing edge, proceeding along the upper surface to the
-leading edge, and returning along the lower surface. The number of Bernstein
-weights per surface is currently fixed internally at eight, following the
-implementation used in
-[NeuralFoil](https://github.com/peterdsharpe/NeuralFoil).
+leading edge, and returning along the lower surface.
 
 # Arguments
 
@@ -102,6 +99,14 @@ implementation used in
 # Returns
 
 - [`KulfanParameters`](@ref)
+
+# Notes
+
+- Coordinates are used as provided. Call [`normalize_coordinates!`](@ref) first
+  when chord coordinates are not normalized.
+- The number of Bernstein weights per surface is currently fixed internally at
+  eight, following the implementation used in
+  [NeuralFoil](https://github.com/peterdsharpe/NeuralFoil).
 """
 function KulfanParameters(coordinates)
     weights_per_side = 8
@@ -154,6 +159,10 @@ Normalize input coordinates in place using chord-based scaling.
 - `coordinates::AbstractMatrix`: Matrix of airfoil coordinates with columns
   representing the x and y values.
 
+# Returns
+
+- `AbstractMatrix`: The normalized `coordinates` matrix.
+
 # Notes
 
 - The implementation shifts x by `minimum(x)` and divides the full coordinate
@@ -186,8 +195,8 @@ Split airfoil coordinates into upper and lower surfaces.
 
 # Notes
 
-- For even-length coordinate arrays, the leading-edge point is not duplicated
-  in both outputs.
+- For odd-length coordinate arrays, the leading-edge point is included in both
+  outputs. For even-length arrays, it is not duplicated.
 """
 @inline function split_upper_lower_surfaces(coordinates)
     _, n = findmin(@view coordinates[:, 1])
@@ -242,12 +251,12 @@ Kulfan shape function defined as a weighted sum of Bernstein polynomials.
 
 # Arguments
 
-- `x`: Nondimensional chordwise coordinates.
+- `x`: Nondimensional chordwise coordinate array with values in `[0, 1]`.
 - `coefficients::AbstractVector`: Weights for the Bernstein polynomials.
 
 # Returns
 
-- Values of the shape function with the same shape semantics as `x`.
+- Values of the shape function with the same array shape as `x`.
 """
 @inline function shape_function(x, coefficients)
     S = similar(x) .= 0
@@ -266,14 +275,19 @@ CST (Class-Shape Transformation) surface parametrization.
 
 # Arguments
 
-- `x`: Nondimensional chordwise coordinates [0, 1].
+- `x`: Nondimensional chordwise coordinate array with values in `[0, 1]`.
 - `coefficients::AbstractVector`: Shape function weights.
 - `leading_edge_weight::Real`: Leading-edge modification term.
 - `trailing_edge_thickness::Real`: Trailing-edge thickness parameter.
 
 # Returns
 
-- Airfoil surface coordinates with the same shape semantics as `x`.
+- Airfoil surface coordinates with the same array shape as `x`.
+
+# Notes
+
+- `x` must support `similar(x)`; scalar `Real` inputs are not supported by
+  this helper.
 """
 function cst(x, coefficients, leading_edge_weight, trailing_edge_thickness)
     N = length(coefficients)
@@ -304,7 +318,7 @@ Generate the airfoil surface coordinates from Kulfan parameters.
 - `Vector{<:Real}`: Airfoil surface y-coordinates corresponding to `x`.
 """
 function cst_y_coordinates(x, parameters, x_split_id)
-    weights..., leading_edge_weight, trailing_edge_gap = parameters
+    weights..., leading_edge_weight, trailing_edge_thickness = parameters
 
     N = convert(Int, length(weights) / 2)
     weights_upper = weights[1:N]
@@ -314,10 +328,10 @@ function cst_y_coordinates(x, parameters, x_split_id)
     x_lower = x[(x_split_id + 1):end]
 
     y_upper = cst(
-        reverse(x_upper), weights_upper, leading_edge_weight, trailing_edge_gap / 2
+        reverse(x_upper), weights_upper, leading_edge_weight, trailing_edge_thickness / 2
     )
     y_lower = cst(
-        x_lower, weights_lower, leading_edge_weight, -trailing_edge_gap / 2
+        x_lower, weights_lower, leading_edge_weight, -trailing_edge_thickness / 2
     )
 
     return [reverse(y_upper); y_lower]

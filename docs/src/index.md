@@ -65,10 +65,10 @@ analysis = cache.outputs
 
 Reynolds_updated = 7.5e6
 update_features!(
-    cache;
+    cache,
     kulfan_parameters,
     alpha,
-    Reynolds = Reynolds_updated,
+    Reynolds_updated,
 )
 evaluate!(cache)
 analysis_updated = cache.outputs

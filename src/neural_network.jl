@@ -27,14 +27,6 @@ const NUM_INPUT_FEATURES = 25
 
 Stores the parameters of the pretrained neural network model.
 
-# Type Parameters
-
-- `R<:Real`: numeric type used for all elements.
-- `V<:AbstractVector{R}`
-- `M<:AbstractMatrix{R}`
-- `W<:AbstractVector{M}`
-- `B<:AbstractVector{V}`
-
 # Fields
 
 - `mean_inputs_scaled::V`: mean values of the scaled input features.
@@ -60,8 +52,10 @@ end
 """
     NeuralNetworkParameters(; model_size = :xlarge, T = Float64)
 
-Convenience constructor that loads and converts the pretrained neural network
-parameters.
+Load pretrained neural network parameters from package data files.
+
+The returned arrays are converted elementwise to `T`, and the final network
+layer is truncated to the currently supported output channels.
 
 # Keyword Arguments
 
@@ -70,7 +64,16 @@ parameters.
 
 # Returns
 
-- [`NeuralNetworkParameters`](@ref)
+- [`NeuralNetworkParameters`](@ref): Converted network parameters.
+
+# Throws
+
+- `SystemError`: If a required package data file cannot be read.
+- `KeyError`: If a loaded data file does not contain an expected array.
+
+# See Also
+
+[`SUPPORTED_OUTPUT_CHANNELS`](@ref)
 """
 function NeuralNetworkParameters(; model_size = :xlarge, T = Float64)
     scaled_input_distribution = NPZ.npzread(
@@ -108,8 +111,9 @@ Stores the aerodynamic coefficients predicted by the neural network.
 
 # Type Parameters
 
-- `T <: Real`
-- `C <: Union{T, AbstractVector{T}}`
+- `T<:Real`: Element type used by scalar values.
+- `C<:Union{T, AbstractVector{T}}`: Output storage type for scalar or batched
+  predictions.
 
 # Fields
 
@@ -121,9 +125,8 @@ Stores the aerodynamic coefficients predicted by the neural network.
 - `Bot_Xtr::C`: transition location on the lower surface.
 
 !!! note
-
-    Boundary-layer related outputs are currently **not supported**. Support for
-    these outputs is planned in a future version.
+    Boundary-layer related outputs are currently **not supported**. Support
+    for these outputs is planned in a future version.
 """
 @kwdef struct NeuralNetworkOutput{T <: Real, C <: Union{T, AbstractVector{T}}}
     analysis_confidence::C
@@ -147,10 +150,14 @@ network evaluations.
 - `outputs<:NeuralNetworkOutput`: output buffers for aerodynamic coefficients.
 - `y`: network outputs for the original inputs.
 - `y_flipped`: network outputs for symmetry-flipped inputs.
+- `y_both`: combined output buffer for original and flipped batched inputs.
 - `x`: original input features.
 - `x_flipped`: symmetry-flipped input features.
+- `x_both`: combined feature buffer for original and flipped batched inputs.
 - `tmp_x`: layer-activation cache used when evaluating `x`.
 - `tmp_x_flipped`: layer-activation cache used when evaluating `x_flipped`.
+- `tmp_x_both`: combined activation cache for original and flipped batched
+  inputs.
 - `tmp_x_smd1`: temporary workspace for Mahalanobis-distance intermediates.
 - `tmp_x_smd2`: temporary workspace for Mahalanobis-distance intermediates.
 - `tmp_y_smd`: temporary workspace for Mahalanobis-distance outputs.
@@ -184,16 +191,21 @@ Allocate shared original/flipped buffers for batched evaluation.
 # Arguments
 
 - `params::NeuralNetworkParameters`: Pretrained network parameters.
-- `x0::AbstractMatrix`: Input feature matrix of size `($NUM_INPUT_FEATURES, N)`.
+- `x0::AbstractMatrix`: Input feature matrix of size
+  `($NUM_INPUT_FEATURES, N)`.
 
 # Returns
 
 - [`NeuralNetworkCache`](@ref)
 
+# Throws
+
+- `DimensionMismatch`: If `x0` does not have `$NUM_INPUT_FEATURES` rows.
+
 # Notes
 
-- Allocates shared buffers for original and flipped inputs and stores
-  views into those buffers.
+- Allocates shared buffers for original and flipped inputs and stores views
+  into those buffers.
 """
 function NeuralNetworkCache(params::NeuralNetworkParameters, x0::AbstractMatrix)
     (L, C) = (size(x0, 1), size(x0, 2))
@@ -238,11 +250,15 @@ Allocate separate original/flipped forward caches for single-sample evaluation.
 # Arguments
 
 - `params::NeuralNetworkParameters`: Pretrained network parameters.
-- `x::AbstractVector`: Input feature vector of length $NUM_INPUT_FEATURES.
+- `x::AbstractVector`: Input feature vector of length `$NUM_INPUT_FEATURES`.
 
 # Returns
 
 - [`NeuralNetworkCache`](@ref)
+
+# Throws
+
+- `DimensionMismatch`: If `x` does not have length `$NUM_INPUT_FEATURES`.
 
 # Notes
 
@@ -318,9 +334,8 @@ end
     build_features(kulfan_parameters, alpha, Reynolds;
         n_crit = 9, xtr_upper = 1, xtr_lower = 1)
 
-Construct a `$(NUM_INPUT_FEATURES)x N` neural-network input feature array
-expected by the neural network from Kulfan shape parameters and flow
-conditions.
+Construct neural-network input features expected by the pretrained model from
+Kulfan shape parameters and flow conditions.
 
 # Arguments
 
@@ -337,11 +352,11 @@ conditions.
 
 # Returns
 
-- `AbstractVector{<:Real}`: Feature vector when `alpha` and `Reynolds` are
-  scalars.
-- `AbstractMatrix{<:Real}`: Feature matrix of size `(n_features, N)` when
-  either `alpha` or `Reynolds` are vectors. Each column corresponds to one
-  sample.
+- `AbstractVector{<:Real}`: Feature vector of length `$NUM_INPUT_FEATURES`
+  when `alpha` and `Reynolds` are scalars.
+- `AbstractMatrix{<:Real}`: Feature matrix of size
+  `($NUM_INPUT_FEATURES, N)` when either `alpha` or `Reynolds` is a vector.
+  Each column corresponds to one sample.
 
 # Throws
 
@@ -534,6 +549,34 @@ function update_features!(cache::NeuralNetworkCache, x)
     return nothing
 end
 
+"""
+    update_features!(cache, kulfan_parameters, alpha, Reynolds, n_crit = 9,
+        xtr_upper = 1, xtr_lower = 1)
+
+Update cached input features from Kulfan parameters and flow conditions.
+
+# Arguments
+
+- `cache::NeuralNetworkCache`: Cache containing input and workspace arrays.
+- `kulfan_parameters::KulfanParameters`: Airfoil geometry defined by Kulfan
+  (CST) parameters.
+- `alpha`: Angle of attack in degrees. Can be a scalar or a vector.
+- `Reynolds`: Reynolds number. Can be a scalar or a vector.
+- `n_crit::Real=9`: Critical amplification factor used in transition modeling.
+- `xtr_upper::Real=1`: Forced transition location on the upper surface.
+- `xtr_lower::Real=1`: Forced transition location on the lower surface.
+
+# Throws
+
+- `DimensionMismatch`: If cached feature dimensions do not match the generated
+  sample count, or if vector-valued `alpha` and `Reynolds` lengths are
+  incompatible.
+
+# Notes
+
+- This method also updates symmetry-flipped features. It does not recompute
+  network outputs; call [`evaluate!`](@ref) afterward.
+"""
 function update_features!(
         cache::NeuralNetworkCache,
         kulfan_parameters::KulfanParameters,
@@ -703,8 +746,11 @@ input features.
 
 # Arguments
 
-- `x::AbstractArray`: Input array of size ($NUM_INPUT_FEATURES, *) where each
-  column represents a sample. Flipping is applied on specific rows.
+- `x::AbstractVecOrMat`: Input features.
+
+# Throws
+
+- `DimensionMismatch`: If `x` does not have `$NUM_INPUT_FEATURES` rows.
 """
 function flip_inputs!(x)
     size(x, 1) == NUM_INPUT_FEATURES || throw(
@@ -807,6 +853,15 @@ end
     swish(x, β = 1)
 
 Swish activation function.
+
+# Arguments
+
+- `x`: Input value.
+- `β::Real=1`: Activation slope parameter.
+
+# Returns
+
+- Activated value with the same scalar type semantics as `x`.
 """
 @inline swish(x, β = one(x)) = x * inv(one(x) + exp(-β * x))
 
@@ -814,6 +869,14 @@ Swish activation function.
     sigmoid(x)
 
 Sigmoid activation function with input clipping for numerical stability.
+
+# Arguments
+
+- `x`: Input value.
+
+# Returns
+
+- Clipped sigmoid value.
 """
 @inline function sigmoid(x)
     ln_eps = _ln_eps(x)
@@ -883,18 +946,32 @@ end
 # ----------------------------------------------------------------------
 """
     evaluate(network_parameters, x)
+    evaluate(network_parameters, kulfan_parameters, alpha, Reynolds;
+        n_crit = 9, xtr_upper = 1, xtr_lower = 1)
 
-Evaluate the neural network for the input features `x` using the pretrained
-parameters `network_parameters`. It then applies post-processing
-transformations to produce physically meaningful aerodynamic coefficients.
+Evaluate the neural network and return decoded aerodynamic coefficients.
+
+- When `x` is provided, it must contain preprocessed input features with a
+  sample per column.
+- When Kulfan parameters and flow conditions are provided, features are
+  automatically generated before network evaluation.
 
 # Arguments
 
 - `network_parameters::NeuralNetworkParameters`: Pretrained parameters of the
   neural network.
-- `x::AbstractMatrix`: Matrix of preprocessed features characterizing the
-  airfoil geometry and the flow conditions. Each column corresponds to one
-  input sample.
+- `x::AbstractVecOrMat{<:Real}`: Preprocessed features.
+  corresponds to one input sample.
+- `kulfan_parameters::KulfanParameters`: Airfoil geometry defined by Kulfan
+  (CST) parameters.
+- `alpha`: Angle of attack in degrees. Can be a scalar or a vector.
+- `Reynolds`: Reynolds number. Can be a scalar or a vector.
+
+# Keyword Arguments
+
+- `n_crit::Real=9`: Critical amplification factor used in transition modeling.
+- `xtr_upper::Real=1`: Forced transition location on the upper surface.
+- `xtr_lower::Real=1`: Forced transition location on the lower surface.
 
 # Returns
 
@@ -1019,15 +1096,15 @@ mean of the scaled input distribution.
 
 # Arguments
 
-- `params::NeuralNetworkParameters`: pretrained neural network parameters
-  containing
-  the mean and inverse covariance of the scaled input distribution.
+- `params::NeuralNetworkParameters`: Pretrained neural network parameters
+  containing the mean and inverse covariance of the scaled input distribution.
 - `x::AbstractArray{<:Real}`: Input samples.
 
 # Returns
 
-- `Vector{<:Real}` for matrix inputs.
-- `<:Real` for vector inputs.
+- `Adjoint{<:Real, <:AbstractMatrix}`: Row-oriented distances for matrix
+  inputs, with one distance per input sample.
+- `<:Real`: Distance for vector inputs.
 """
 function squared_mahalanobis_distance(
         params::NeuralNetworkParameters,
@@ -1064,12 +1141,11 @@ mean of the scaled input distribution.
 
 - `y`: Workspace output with shape `(size(x, 2), 1)`. Distances are written to
   the first column.
-- `params::NeuralNetworkParameters`: pretrained neural network parameters
-  containing
-  the mean and inverse covariance of the scaled input distribution.
-- `x::AbstractArray{<:Real}`: Input samples.
-- `tmp1::AbstractArray{<:Real}`: Temporary array the same size as `x`.
-- `tmp2::AbstractArray{<:Real}`: Temporary array the same size as `x`.
+- `params::NeuralNetworkParameters`: Pretrained neural network parameters
+  containing the mean and inverse covariance of the scaled input distribution.
+- `x::AbstractVecOrMat{<:Real}`: Input samples.
+- `tmp1::AbstractVecOrMat{<:Real}`: Temporary array the same size as `x`.
+- `tmp2::AbstractVecOrMat{<:Real}`: Temporary array the same size as `x`.
 """
 function squared_mahalanobis_distance!(y, params::NeuralNetworkParameters, x, tmp1, tmp2)
     tmp1 .= x .- params.mean_inputs_scaled
@@ -1086,6 +1162,7 @@ end
 
 """
     confidence_correction!(y, x, network_parameters)
+    confidence_correction!(y, x, network_parameters, tmp_y, tmp1, tmp2)
     confidence_correction!(y, x, cache)
 
 Apply Mahalanobis-distance-based confidence correction to the network outputs.
@@ -1095,11 +1172,14 @@ distance between the input features and the training data distribution.
 
 # Arguments
 
-- `y::AbstractArray{<:Real}`: Network output array. The first row is modified
-  in-place.
-- `x::AbstractArray{<:Real}`: Input feature array.
-- `network_parameters::NeuralNetworkParameters`: Pretrained network parameters
-- `cache::NeuralNetworkCache`: Cache containing preallocated arrays
+- `y::AbstractVecOrMat{<:Real}`: Network output array. The confidence channel
+  is modified in-place.
+- `x::AbstractVecOrMat{<:Real}`: Input feature array.
+- `network_parameters::NeuralNetworkParameters`: Pretrained network parameters.
+- `tmp_y`: Workspace output for squared Mahalanobis distances.
+- `tmp1`: Temporary workspace with the same size as `x`.
+- `tmp2`: Temporary workspace with the same size as `x`.
+- `cache::NeuralNetworkCache`: Cache containing preallocated arrays.
 
 # Notes
 
@@ -1165,7 +1245,7 @@ original (non-flipped) reference frame.
 
 # Arguments
 
-- `y::AbstractArray{<:Real}`: Output array to be transformed in-place.
+- `y::AbstractVecOrMat{<:Real}`: Output array to be transformed in-place.
 - `tmp::AbstractVector{<:Real}`: Temporary array used to swap outputs.
 """
 function flip_outputs!(y, tmp)
@@ -1206,11 +1286,16 @@ locations.
 
 # Arguments
 
-- `y::AbstractArray{<:Real}`: Network output array modified in-place.
+- `y::AbstractVecOrMat{<:Real}`: Network output array modified in-place.
 
-!!! note
-    The ordering and scaling of outputs are part of the trained model and must
-    not be modified without retraining the network.
+# Notes
+
+- The ordering and scaling of outputs are part of the trained model and must
+  not be modified without retraining the network.
+
+# See Also
+
+[`NeuralNetworkOutput`](@ref)
 """
 function decode_outputs!(y)
     @views begin
@@ -1235,7 +1320,8 @@ Convert a decoded output array into a `NeuralNetworkOutput` struct.
 
 # Returns
 
-- [`NeuralNetworkOutput`](@ref)
+- [`NeuralNetworkOutput`](@ref): Output with vector-valued fields for matrix
+  inputs and scalar fields for vector inputs.
 """
 function pack_output(y::AbstractMatrix{<:Real})
     return @views NeuralNetworkOutput(
@@ -1267,7 +1353,7 @@ Store decoded outputs into a preallocated `NeuralNetworkOutput` struct.
 # Arguments
 
 - `output::NeuralNetworkOutput`: Output container to be updated.
-- `y::AbstractArray{<:Real}`: Decoded network output array.
+- `y::AbstractMatrix{<:Real}`: Decoded network output matrix.
 """
 function pack_output!(output::NeuralNetworkOutput, y)
     @views begin

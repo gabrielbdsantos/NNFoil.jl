@@ -9,10 +9,10 @@ const AIRFOILS_DIR = joinpath(".", "airfoils")
 const NUM_REYNOLDS_VALUES = 15
 
 # Test arguments:
-#   --no-code-quality     : disables code quality tests
-#   --no-unit-tests       : disables unit tests
-#   --no-comparison       : disables comparative tests
-#   --reduced-comparison  : reduces comparative tests to a random set of N cases
+#   no-code-quality     : disables code quality tests
+#   no-unit-tests       : disables unit tests
+#   no-comparison       : disables comparative tests
+#   reduced-comparison  : reduces comparative tests to a random set of N cases
 const TEST_ARGS = Set(lowercase.(ARGS))
 const RUN_CODE_QUALITY = !("no-code-quality" in TEST_ARGS)
 const RUN_UNIT_TESTS = !("no-unit-tests" in TEST_ARGS)
