@@ -31,17 +31,27 @@
     end
 
     @testset "zero allocation" begin
-        y_alloc = [
-            0.0 2.0
-            4.0 -4.0
-            2.0 3.0
-            20.0 -20.0
-            -1.0 2.0
-            0.2 1.2
-        ]
-        decode_alloc(yy) = @allocated NNFoil.decode_outputs!(yy)
+        @testset "batched input" begin
+            y_alloc = [
+                0.0 2.0
+                4.0 -4.0
+                2.0 3.0
+                20.0 -20.0
+                -1.0 2.0
+                0.2 1.2
+            ]
+            decode_alloc(yy) = @allocated NNFoil.decode_outputs!(yy)
 
-        NNFoil.decode_outputs!(y_alloc)
-        @test decode_alloc(y_alloc) == 0
+            NNFoil.decode_outputs!(y_alloc)
+            @test decode_alloc(y_alloc) == 0
+        end
+
+        @testset "scalar input" begin
+            y_alloc = [0.0, 4.0, 2.0, 20.0, -1.0, 1.2]
+            decode_alloc(yy) = @allocated NNFoil.decode_outputs!(yy)
+
+            NNFoil.decode_outputs!(y_alloc)
+            @test decode_alloc(y_alloc) == 0
+        end
     end
 end

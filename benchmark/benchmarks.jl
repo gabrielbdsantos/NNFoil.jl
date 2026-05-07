@@ -162,26 +162,46 @@ SUITE["kernels"]["confidence_correction!"] = @benchmarkable(
     evals = 1,
 )
 
-SUITE["kernels"]["decode_outputs!"] = @benchmarkable(
+SUITE["kernels"]["decode_outputs!"] = BenchmarkGroup()
+SUITE["kernels"]["decode_outputs!"]["vector"] = @benchmarkable(
     NNFoil.decode_outputs!(y),
-    setup = (y = NNFoil.forward(NETWORK_PARAMETERS, FEATURES)),
+    setup = (y = vec(NNFoil.forward(NETWORK_PARAMETERS, FEATURES[:, 1]))),
     evals = 1,
 )
 
-SUITE["kernels"]["flip_inputs!"] = @benchmarkable(
+SUITE["kernels"]["flip_inputs!"] = BenchmarkGroup()
+SUITE["kernels"]["flip_inputs!"]["vector"] = @benchmarkable(
     NNFoil.flip_inputs!(x),
-    setup = (x = copy(FEATURES)),
+    setup = (x = copy(FEATURES[:, 1])),
     evals = 1,
 )
 
-SUITE["kernels"]["flip_outputs!"] = @benchmarkable(
-    NNFoil.flip_outputs!(y, tmp),
-    setup = (
-        y = NNFoil.forward(NETWORK_PARAMETERS, FEATURES);
-        tmp = zeros(size(y, 2))
-    ),
+SUITE["kernels"]["flip_outputs!"] = BenchmarkGroup()
+SUITE["kernels"]["flip_outputs!"]["vector"] = @benchmarkable(
+    NNFoil.flip_outputs!(y),
+    setup = (y = vec(NNFoil.forward(NETWORK_PARAMETERS, FEATURES[:, 1]))),
     evals = 1,
 )
+
+for (label, case) in CASES
+    SUITE["kernels"]["decode_outputs!"][label] = @benchmarkable(
+        NNFoil.decode_outputs!(y),
+        setup = (y = NNFoil.forward(NETWORK_PARAMETERS, $case.FEATURES)),
+        evals = 1,
+    )
+
+    SUITE["kernels"]["flip_inputs!"][label] = @benchmarkable(
+        NNFoil.flip_inputs!(x),
+        setup = (x = copy($case.FEATURES)),
+        evals = 1,
+    )
+
+    SUITE["kernels"]["flip_outputs!"][label] = @benchmarkable(
+        NNFoil.flip_outputs!(y),
+        setup = (y = NNFoil.forward(NETWORK_PARAMETERS, $case.FEATURES)),
+        evals = 1,
+    )
+end
 
 SUITE["kernels"]["fuse_predictions!"] = @benchmarkable(
     NNFoil.fuse_predictions!(y, y_flipped),
@@ -220,14 +240,13 @@ SUITE["pipelines"] = BenchmarkGroup()
 
 SUITE["pipelines"]["flip_fuse_decode"] = @benchmarkable(
     begin
-        NNFoil.flip_outputs!(y_flipped, tmp)
+        NNFoil.flip_outputs!(y_flipped)
         NNFoil.fuse_predictions!(y, y_flipped)
         NNFoil.decode_outputs!(y)
     end,
     setup = (
         y = NNFoil.forward(NETWORK_PARAMETERS, FEATURES);
-        y_flipped = copy(y);
-        tmp = zeros(size(y, 2))
+        y_flipped = copy(y)
     ),
     evals = 1,
 )

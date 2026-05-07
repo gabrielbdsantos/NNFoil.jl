@@ -753,13 +753,27 @@ input features.
 - `DimensionMismatch`: If `x` does not have `$NUM_INPUT_FEATURES` rows.
 """
 function flip_inputs!(x)
-    size(x, 1) == NUM_INPUT_FEATURES || throw(
+    size(x, 1) == 25 || throw(
         DimensionMismatch(
-            "`x` must be of size ($NUM_INPUT_FEATURES, *)." *
-                " An array of size $(size(x)) was given."
+            "`x` must be of size (25, *). An array of size $(size(x)) was given."
         )
     )
+    return _flip_inputs!(x)
+end
 
+@inline function _flip_inputs!(x::AbstractVector)
+    for j in 1:8
+        x[j], x[8 + j] = -x[8 + j], -x[j]
+    end
+
+    x[17] *= -1
+    x[19] *= -1
+    x[end - 1], x[end] = x[end], x[end - 1]
+
+    return nothing
+end
+
+@inline function _flip_inputs!(x::AbstractMatrix)
     @inbounds for i in axes(x, 2)
         for j in 1:8
             x[j, i], x[(8 + j), i] = -x[(8 + j), i], -x[j, i]
@@ -1003,8 +1017,7 @@ function evaluate(
         confidence_correction!(y, x_view, network_parameters, tmp_y, tmp1, tmp2)
         confidence_correction!(y_flipped, x_flipped, network_parameters, tmp_y, tmp1, tmp2)
 
-        tmp = Vector{eltype(y_flipped)}(undef, size(y_flipped, 2))
-        flip_outputs!(y_flipped, tmp)
+        flip_outputs!(y_flipped)
         fuse_predictions!(y, y_flipped)
         decode_outputs!(y)
 
@@ -1024,9 +1037,8 @@ function evaluate(
     y_flipped = forward(network_parameters, x_flipped)
     confidence_correction!(y_flipped, x_flipped, network_parameters)
 
-    tmp = Vector{eltype(y_flipped)}(undef, size(y_flipped, 2))
     @views begin
-        flip_outputs!(y_flipped, tmp)
+        flip_outputs!(y_flipped)
         fuse_predictions!(y, y_flipped)
         decode_outputs!(y)
     end
@@ -1079,7 +1091,7 @@ function evaluate!(cache::NeuralNetworkCache)
         confidence_correction!(cache.y, cache.x, cache)
         confidence_correction!(cache.y_flipped, cache.x_flipped, cache)
 
-        flip_outputs!(cache.y_flipped, cache.tmp_y_smd[:, 1])
+        flip_outputs!(cache.y_flipped)
         fuse_predictions!(cache.y, cache.y_flipped)
         decode_outputs!(cache.y)
         pack_output!(cache.outputs, cache.y)
@@ -1238,23 +1250,28 @@ function confidence_correction!(y, x, cache::NeuralNetworkCache)
 end
 
 """
-    flip_outputs!(y, tmp)
+    flip_outputs!(y)
 
 Transform neural network outputs so that they are consistent with the
 original (non-flipped) reference frame.
 
 # Arguments
 
-- `y::AbstractVecOrMat{<:Real}`: Output array to be transformed in-place.
-- `tmp::AbstractVector{<:Real}`: Temporary array used to swap outputs.
+- `y::AbstractVecOrMat{<:Real}`: Output vector or matrix to be transformed
+  in-place.
 """
-function flip_outputs!(y, tmp)
-    @views begin
-        tmp .= y[6, :]
-        y[2, :] .= (-).(y[2, :])
-        y[4, :] .= (-).(y[4, :])
-        y[6, :] .= y[5, :]
-        y[5, :] .= tmp
+@inline function flip_outputs!(y::AbstractVector{<:Real})
+    y[2] = -y[2]
+    y[4] = -y[4]
+    y[6], y[5] = y[5], y[6]
+    return nothing
+end
+
+@inline function flip_outputs!(y::AbstractMatrix{<:Real})
+    @inbounds for i in axes(y, 2)
+        y[2, i] = -y[2, i]
+        y[4, i] = -y[4, i]
+        y[6, i], y[5, i] = y[5, i], y[6, i]
     end
     return nothing
 end
@@ -1297,14 +1314,24 @@ locations.
 
 [`NeuralNetworkOutput`](@ref)
 """
-function decode_outputs!(y)
-    @views begin
-        y[1, :] .= sigmoid.(y[1, :])
-        y[2, :] ./= 2
-        y[3, :] .= exp.((y[3, :] .- 2) .* 2)
-        y[4, :] ./= 20
-        y[5, :] .= clamp.(y[5, :], 0, 1)
-        y[6, :] .= clamp.(y[6, :], 0, 1)
+function decode_outputs!(y::AbstractVector{<:Real})
+    y[1] = sigmoid(y[1])
+    y[2] /= 2
+    y[3] = exp((y[3] - 2) * 2)
+    y[4] /= 20
+    y[5] = clamp(y[5], 0, 1)
+    y[6] = clamp(y[6], 0, 1)
+    return nothing
+end
+
+function decode_outputs!(y::AbstractMatrix{<:Real})
+    @inbounds for i in axes(y, 2)
+        y[1, i] = sigmoid(y[1, i])
+        y[2, i] /= 2
+        y[3, i] = exp((y[3, i] - 2) * 2)
+        y[4, i] /= 20
+        y[5, i] = clamp(y[5, i], 0, 1)
+        y[6, i] = clamp(y[6, i], 0, 1)
     end
     return nothing
 end
