@@ -767,21 +767,22 @@ end
 @inline function _write_flow_column!(
         x::AbstractVecOrMat{T},
         i::Int,
-        alpha::T,
-        Reynolds::T,
-        n_crit_scaled::T,
-        xtr_upper::T,
-        xtr_lower::T
+        alpha,
+        Reynolds,
+        n_crit_scaled,
+        xtr_upper,
+        xtr_lower
     ) where {T <: Real}
-    c = cosd(alpha)
+    T_alpha = T(alpha)
+    c = cosd(T_alpha)
 
-    x[19, i] = sind(2 * alpha)
+    x[19, i] = sind(2 * T_alpha)
     x[20, i] = c
     x[21, i] = one(T) - c^2
-    x[22, i] = (log(Reynolds) - T(12.5)) / T(3.5)
-    x[23, i] = n_crit_scaled
-    x[24, i] = xtr_upper
-    x[25, i] = xtr_lower
+    x[22, i] = (log(T(Reynolds)) - T(12.5)) / T(3.5)
+    x[23, i] = T(n_crit_scaled)
+    x[24, i] = T(xtr_upper)
+    x[25, i] = T(xtr_lower)
 
     return nothing
 end

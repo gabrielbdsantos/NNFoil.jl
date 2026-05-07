@@ -26,7 +26,6 @@
         @test cache_scalar_f64.x isa Vector{Float64}
 
         cache_batch_f64 = NNFoil.NeuralNetworkCache(UNIT_NETWORK_PARAMETERS, 3)
-        @show typeof(cache_batch_f64.x)
         @test cache_batch_f64.x isa AbstractMatrix{Float64}
 
         @test_throws ArgumentError NNFoil.NeuralNetworkCache(UNIT_NETWORK_PARAMETERS, 0)

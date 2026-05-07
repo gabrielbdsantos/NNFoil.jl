@@ -1,3 +1,5 @@
+using ForwardDiff
+
 @testset "update_features!" begin
     @testset "cache update from Kulfan inputs" begin
         n_crit = 10.0
@@ -82,6 +84,29 @@
         x_flipped_expected = copy(x_expected)
         NNFoil.flip_inputs!(x_flipped_expected)
         @test cache_scalar.x_flipped == x_flipped_expected
+    end
+
+    @testset "typed cache update with mixed scalar inputs" begin
+        cache = NNFoil.NeuralNetworkCache(UNIT_NETWORK_PARAMETERS, 1, Float32)
+        alpha = 2.0
+        Reynolds = 4.0e6
+
+        NNFoil.update_features!(cache, UNIT_KULFAN, alpha, Reynolds)
+
+        x_expected = Float32.(NNFoil.build_features(UNIT_KULFAN, alpha, Reynolds))
+        @test cache.x isa Vector{Float32}
+        @test cache.x ≈ vec(x_expected) rtol = 1.0f-6
+    end
+
+    @testset "Dual cache update accepts constant scalar inputs" begin
+        f(alpha) = begin
+            cache = NNFoil.NeuralNetworkCache(UNIT_NETWORK_PARAMETERS, 1, typeof(alpha))
+            NNFoil.update_features!(cache, UNIT_KULFAN, alpha, 4.0e6)
+            return cache.x[19]
+        end
+
+        alpha = 2.0
+        @test ForwardDiff.derivative(f, alpha) ≈ (2 * pi / 180) * cosd(2 * alpha)
     end
 
     @testset "cache update with scalar alpha and vector Reynolds" begin
