@@ -184,6 +184,45 @@ network evaluations.
 end
 
 """
+    NeuralNetworkCache(params, n::Int, T::Type = Float64)
+
+Allocate an evaluation cache for `n` samples without existing feature values.
+
+# Arguments
+
+- `params::NeuralNetworkParameters`: Pretrained network parameters.
+- `n::Int`: Number of samples the cache will hold.
+- `T::Type=Float64`: Element type used for the allocated feature buffers.
+
+# Returns
+
+- [`NeuralNetworkCache`](@ref)
+
+# Throws
+
+- `ArgumentError`: If `n` is less than `1`.
+
+# Notes
+
+- The feature buffers are uninitialized. Fill them with `update_features!`
+  before calling `evaluate!`.
+
+# See Also
+
+[`update_features!`](@ref), [`evaluate!`](@ref)
+"""
+function NeuralNetworkCache(params::NeuralNetworkParameters, n::Int, T::Type = Float64)
+    n >= 1 || throw(ArgumentError("`n` must be greater or equal 1; got $n."))
+
+    return NeuralNetworkCache(
+        params,
+        n == 1
+            ? Vector{T}(undef, NUM_INPUT_FEATURES)
+            : Matrix{T}(undef, NUM_INPUT_FEATURES, n)
+    )
+end
+
+"""
     NeuralNetworkCache(params, x0)
 
 Allocate shared original/flipped buffers for batched evaluation.
@@ -209,6 +248,14 @@ Allocate shared original/flipped buffers for batched evaluation.
 """
 function NeuralNetworkCache(params::NeuralNetworkParameters, x0::AbstractMatrix)
     (L, C) = (size(x0, 1), size(x0, 2))
+
+    L == NUM_INPUT_FEATURES || throw(
+        DimensionMismatch(
+            "`x0` must be of size ($NUM_INPUT_FEATURES, *). " *
+                "An array of size $(size(x0)) was given."
+        )
+    )
+
     x_both = similar(x0, L, 2C)
 
     x = @view x_both[:, 1:C]
@@ -265,6 +312,13 @@ Allocate separate original/flipped forward caches for single-sample evaluation.
 - Allocates separate forward caches for original and flipped inputs.
 """
 function NeuralNetworkCache(params::NeuralNetworkParameters, x::AbstractVector)
+    length(x) == NUM_INPUT_FEATURES || throw(
+        DimensionMismatch(
+            "`x` must have length $NUM_INPUT_FEATURES. " *
+                "A vector of length $(length(x)) was given."
+        )
+    )
+
     x_flipped = copy(x)
     flip_inputs!(x_flipped)
 
@@ -585,12 +639,6 @@ function update_features!(
         n_crit = 9,
         xtr_upper = 1,
         xtr_lower = 1
-    )
-    size(cache.x, 1) == NUM_INPUT_FEATURES || throw(
-        DimensionMismatch(
-            "`x` must be of size ($NUM_INPUT_FEATURES, *). " *
-                "An array of size $(size(cache.x)) was given."
-        )
     )
 
     T = eltype(cache.x)
