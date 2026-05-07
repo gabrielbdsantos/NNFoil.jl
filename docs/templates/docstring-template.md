@@ -7,7 +7,10 @@ Use this template for docstrings across the repository.
 - Wrap docstring prose at a maximum of 79 characters per line.
 - Keep wording precise, non-repetitive, and behavior-focused.
 - Use a one-line summary first; add an optional second paragraph when needed.
-- `# Notes` should only be included for non-obvious design decisions.
+- `# Notes` should only be included for stable, non-obvious design decisions.
+- Prefer admonitions such as `!!! note` or `!!! warning` over `# Notes` for
+  current limitations, temporary workarounds, or behavior planned for future
+  improvement.
 - Format docstrings with `rumdl`.
 - When a signature (method/type) exceeds 79 columns, break lines as:
 
@@ -37,18 +40,20 @@ Preferred sections:
 - `# Returns`
 - `# Throws` (when applicable)
 - `# Notes` (non-obvious decisions only)
-- `# See also` (optional)
+- `# See Also` (optional)
+
+Use admonitions instead of `# Notes` when documenting current limitations or
+planned future improvements.
 
 Example:
 
 ```julia
 """
-    function_name(arg1, arg2; kw1=default)
+    function_name(arg1, arg2; kw1 = default)
 
 <One-line behavior-focused summary in present tense>.
 
-<Optional second paragraph for context, assumptions, or
-non-obvious behavior>.
+<Optional second paragraph for context, assumptions, or non-obvious behavior>.
 
 # Arguments
 
@@ -71,11 +76,14 @@ non-obvious behavior>.
 
 - Assumptions or model-specific conventions.
 
-# See also
+!!! warning
+    Current limitation or temporary workaround planned for future improvement.
+
+# See Also
 
 - [`related_fn`](@ref), [`other_fn!`](@ref)
 """
-function function_name(arg1, arg2; kw1=default)
+function function_name(arg1, arg2; kw1 = default)
     ...
 end
 ```
@@ -88,6 +96,9 @@ Preferred sections:
 - `# Keyword Arguments` (when applicable)
 - `# Throws` (when applicable)
 - `# Notes` (non-obvious decisions only)
+
+Use admonitions instead of `# Notes` when documenting current limitations or
+planned future improvements.
 
 If a mutating method returns `nothing`, omit `# Returns`.
 If it returns a value, include `# Returns`.
@@ -116,6 +127,9 @@ Update `<state>` in-place using `<input>`.
 # Notes
 
 - In-place contract and required preconditions.
+
+!!! warning
+    Current limitation or temporary workaround planned for future improvement.
 """
 function function_name!(state, input; ...)
     ...
@@ -126,10 +140,21 @@ end
 
 Preferred sections:
 
+- `# Type Parameters` (only when parameters have user-facing meaning)
 - `# Fields`
 - `# Notes` (usage constraints or key relationships)
 
+Use admonitions instead of `# Notes` when documenting current limitations or
+planned future improvements.
+
 Do not document constructors in the type docstring.
+
+Use `# Type Parameters` sparingly. Include it only for public parametric types
+when parameters communicate user-facing behavior, encode a semantic
+constraint, or clarify a non-obvious relationship between fields. Omit it when
+parameters are implementation details, only preserve storage choices, or simply
+repeat field types. In particular, do not document long generated or cache
+storage parameter lists.
 
 Example:
 
@@ -139,16 +164,24 @@ Example:
 
 <Role of this type in the package>.
 
+# Type Parameters
+
+- `T<:Real`: Element type used by scalar values.
+- `C`: Container shape selected by the input shape.
+
 # Fields
 
-- `field1::Type`: Meaning.
-- `field2::Type`: Meaning.
+- `field1::C`: Value whose shape follows the input shape.
+- `field2::T`: Scalar metadata associated with `field1`.
 
 # Notes
 
-- Usage constraints and relationship to key methods.
+- `C` is scalar for single-input values and vector-valued for batched values.
+
+!!! note
+    Current limitation or planned future improvement for this type.
 """
-struct TypeName{T1, T2}
+struct TypeName{T <: Real, C}
     ...
 end
 ```
