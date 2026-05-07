@@ -3,6 +3,23 @@ Currently supported output channels. See [`NeuralNetworkOutput`](@ref).
 """
 const SUPPORTED_OUTPUT_CHANNELS = 6
 
+"""
+Number of input features the pretrained neural network expects.
+
+The 25 input features are:
+
+- 18 Kulfan parameters (8 upper weights, 8 lower weights, leading edge weight,
+  trailing edge thickness scaled by 50)
+- `sin(2α)` (α in degrees)
+- `cos(α)` (α in degrees)
+- `1 - cos²(α)` (α in degrees)
+- `(log(Reynolds) - 12.5) / 3.5`
+- `(n_crit - 9) / 4.5`
+- `xtr_upper`
+- `xtr_lower`
+"""
+const NUM_INPUT_FEATURES = 25
+
 # Types {{{
 # ----------------------------------------------------------------------
 """
@@ -141,19 +158,19 @@ network evaluations.
 @concrete struct NeuralNetworkCache
     network_parameters <: NeuralNetworkParameters
     outputs <: NeuralNetworkOutput
-    # -------------
+
     y
     y_flipped
     y_both
-    # -------------
+
     x
     x_flipped
     x_both
-    # -------------
+
     tmp_x
     tmp_x_flipped
     tmp_x_both
-    # -------------
+
     tmp_x_smd1
     tmp_x_smd2
     tmp_y_smd
@@ -167,7 +184,7 @@ Allocate shared original/flipped buffers for batched evaluation.
 # Arguments
 
 - `params::NeuralNetworkParameters`: Pretrained network parameters.
-- `x0::AbstractMatrix`: Input feature matrix of size `(25, N)`.
+- `x0::AbstractMatrix`: Input feature matrix of size `($NUM_INPUT_FEATURES, N)`.
 
 # Returns
 
@@ -221,7 +238,7 @@ Allocate separate original/flipped forward caches for single-sample evaluation.
 # Arguments
 
 - `params::NeuralNetworkParameters`: Pretrained network parameters.
-- `x::AbstractVector`: Input feature vector of length 25.
+- `x::AbstractVector`: Input feature vector of length $NUM_INPUT_FEATURES.
 
 # Returns
 
@@ -301,20 +318,9 @@ end
     build_features(kulfan_parameters, alpha, Reynolds;
         n_crit = 9, xtr_upper = 1, xtr_lower = 1)
 
-Construct a `25 x N` neural-network input feature array expected by the neural
-network from Kulfan shape parameters and flow conditions.
-
-The 25 features are:
-
-- 18 Kulfan parameters (8 upper weights, 8 lower weights, leading edge weight,
-  trailing edge thickness scaled by 50)
-- `sin(2α)` (α in degrees)
-- `cos(α)` (α in degrees)
-- `1 - cos²(α)` (α in degrees)
-- `(log(Reynolds) - 12.5) / 3.5`
-- `(n_crit - 9) / 4.5`
-- `xtr_upper`
-- `xtr_lower`
+Construct a `$(NUM_INPUT_FEATURES)x N` neural-network input feature array
+expected by the neural network from Kulfan shape parameters and flow
+conditions.
 
 # Arguments
 
@@ -371,7 +377,7 @@ function _build_features(
         eltype(xtr_lower),
     )
 
-    x = Vector{T}(undef, 25)
+    x = Vector{T}(undef, NUM_INPUT_FEATURES)
 
     upper = kulfan_parameters.upper_weights
     lower = kulfan_parameters.lower_weights
@@ -419,7 +425,7 @@ function _build_features(
         eltype(xtr_lower),
     )
 
-    x = Matrix{T}(undef, 25, L)
+    x = Matrix{T}(undef, NUM_INPUT_FEATURES, L)
 
     upper = kulfan_parameters.upper_weights
     lower = kulfan_parameters.lower_weights
@@ -537,9 +543,10 @@ function update_features!(
         xtr_upper = 1,
         xtr_lower = 1
     )
-    size(cache.x, 1) == 25 || throw(
+    size(cache.x, 1) == NUM_INPUT_FEATURES || throw(
         DimensionMismatch(
-            "`x` must be of size (25, *). An array of size $(size(cache.x)) was given."
+            "`x` must be of size ($NUM_INPUT_FEATURES, *). " *
+                "An array of size $(size(cache.x)) was given."
         )
     )
 
@@ -696,13 +703,14 @@ input features.
 
 # Arguments
 
-- `x::AbstractArray`: Input array of size (25, *) where each column represents
-  a sample. Flipping is applied on specific rows.
+- `x::AbstractArray`: Input array of size ($NUM_INPUT_FEATURES, *) where each
+  column represents a sample. Flipping is applied on specific rows.
 """
 function flip_inputs!(x)
-    size(x, 1) == 25 || throw(
+    size(x, 1) == NUM_INPUT_FEATURES || throw(
         DimensionMismatch(
-            "`x` must be of size (25, *). An array of size $(size(x)) was given."
+            "`x` must be of size ($NUM_INPUT_FEATURES, *)." *
+                " An array of size $(size(x)) was given."
         )
     )
 
@@ -732,7 +740,7 @@ given input `x`.
 - `network_parameters::NeuralNetworkParameters`: pretrained network weights and
   biases.
 - `x::AbstractVector{<:Real}` or `x::AbstractMatrix{<:Real}`: Input data of
-  size `(25,)` or `(25, N)`.
+  size `($NUM_INPUT_FEATURES,)` or `($NUM_INPUT_FEATURES, N)`.
 
 # Returns
 
