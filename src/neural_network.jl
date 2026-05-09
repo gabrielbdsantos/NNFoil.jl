@@ -1121,10 +1121,10 @@ Evaluate the neural network in-place using a preallocated cache.
 - `cache::NeuralNetworkCache`: Cache containing input features, intermediate
   buffers, and output storage.
 
-# See also
+# See Also
 
-- [`evaluate`](@ref): out-of-place version that allocates outputs and
-  intermediate computations.
+[`evaluate`](@ref): Out-of-place version that allocates outputs and
+intermediate computations.
 """
 function evaluate!(cache::NeuralNetworkCache)
     @views begin
@@ -1352,7 +1352,7 @@ locations.
 
 # Arguments
 
-- `y::AbstractVecOrMat{<:Real}`: Network output array modified in-place.
+- `y::AbstractVecOrMat{<:Real}`: Network output to be modified in-place.
 
 # Notes
 
