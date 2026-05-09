@@ -11,27 +11,39 @@
 
 </div>
 
-This is a partial Julia translation of
-[NeuralFoil](https://github.com/peterdsharpe/NeuralFoil/) inspired by
-[NeuralFoil.jl](https://github.com/byuflowlab/NeuralFoil.jl/). NNFoil.jl has
-been thoroughly tested against the original Python package using a database of
-more than 1600 airfoil samples to ensure a consistent implementation. See this
-[issue](https://github.com/byuflowlab/NeuralFoil.jl/issues/5) for more
-information on how NNFoil.jl differs from NeuralFoil.jl.
+NNFoil.jl is a Julia implementation of
+[NeuralFoil](https://github.com/peterdsharpe/NeuralFoil/), a physics-informed
+machine-learning model for airfoil aerodynamic analysis. The package began as
+an effort to address a correctness issue in
+[NeuralFoil.jl](https://github.com/byuflowlab/NeuralFoil.jl/) (see this
+[issue](https://github.com/byuflowlab/NeuralFoil.jl/issues/5) for details), and
+has since grown into a more accurate and performant implementation.
+
+NNFoil.jl is tested against the original Python package using more than 1,600
+airfoil samples from the [UIUC Airfoil Coordinates
+Database](https://m-selig.ae.illinois.edu/ads/coord_database.html) to ensure
+consistent predictions.
 
 ## Installation
 
-NNFoil.jl is not yet a registered Julia package. So to install it,
+To install NNFoil.jl:
 
 1. Download [Julia](https://julialang.org/downloads/) version 1.10 or later.
-1. Launch Julia and type
+1. Launch Julia and run:
 
 ```julia-repl
 julia> import Pkg
-julia> Pkg.add("https://github.com/gabrielbdsantos/NNFoil.jl")
+julia> Pkg.add("NNFoil")
 ```
 
-## Quick start
+To install the latest development version:
+
+```julia-repl
+julia> import Pkg
+julia> Pkg.add(url = "https://github.com/gabrielbdsantos/NNFoil.jl")
+```
+
+## Quick Start
 
 ```julia
 using NNFoil
@@ -52,7 +64,7 @@ Reynolds = 5.0e6
 analysis = evaluate(network_parameters, kulfan_parameters, alpha, Reynolds)
 ```
 
-For repeated evaluations, use a cache to reuse pre-allocated buffers:
+For repeated evaluations, use a cache to reuse preallocated buffers:
 
 ```julia
 using NNFoil
@@ -75,24 +87,9 @@ evaluate!(cache)
 analysis = cache.outputs
 
 Reynolds_updated = 7.5e6
-update_features!(
-    cache;
-    kulfan_parameters,
-    alpha,
-    Reynolds = Reynolds_updated,
-)
+update_features!(cache, kulfan_parameters, alpha, Reynolds_updated)
 evaluate!(cache)
 analysis_updated = cache.outputs
-```
-
-## AD compatibility
-
-An example comparing gradients from `ForwardDiff.jl` against
-`FiniteDiff.jl` for both `evaluate` and `evaluate!` is available in
-`examples/example03_forwarddiff.jl`. Run it with the test environment:
-
-```bash
-julia examples/example03_forwarddiff.jl
 ```
 
 ## Citing
@@ -113,7 +110,7 @@ If you use NNFoil.jl in your research, please cite both the
 
 and
 [the original author's PhD thesis](https://dspace.mit.edu/handle/1721.1/157809),
-which has an extended chapter that serves as the primary long-form
+which includes an extended chapter that serves as the primary long-form
 documentation for the tool:
 
 ```bibtex
