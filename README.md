@@ -92,6 +92,37 @@ evaluate!(cache)
 analysis_updated = cache.outputs
 ```
 
+## Automatic Differentiation
+
+NNFoil.jl supports automatic differentiation through the neural-network
+evaluation path. The out-of-place API (`evaluate`) and the cached in-place API
+(`evaluate!`) are tested with ForwardDiff, Enzyme, and Mooncake (experimental)
+against finite differences.
+
+Use the same objective-function style you would use with other Julia AD tools:
+
+```julia
+using NNFoil
+using ForwardDiff
+
+network_parameters = NeuralNetworkParameters(; model_size = :xsmall, T = Float64)
+x = build_features(kulfan_parameters, alpha, Reynolds)
+
+objective(v) = begin
+    features = reshape(v, size(x))
+    outputs = evaluate(network_parameters, features)
+    return sum(outputs.CL ./ outputs.CD)
+end
+
+gradient = ForwardDiff.gradient(objective, vec(copy(x)))
+```
+
+For repeated differentiable evaluations, make sure `NeuralNetworkCache` is
+allocated with an element type compatible with the AD input. For ForwardDiff,
+the simplest pattern is to construct the cache inside the differentiated
+objective. See `examples/example03_forwarddiff.jl` for a complete ForwardDiff
+example.
+
 ## Citing
 
 If you use NNFoil.jl in your research, please cite both the
