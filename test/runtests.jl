@@ -44,7 +44,7 @@ include("utils.jl")
             end
 
             @testset "Code linting (JET.jl)" begin
-                JET.test_package(NNFoil; target_defined_modules = true)
+                JET.test_package(NNFoil; target_modules = (NNFoil,))
             end
         end
     end
