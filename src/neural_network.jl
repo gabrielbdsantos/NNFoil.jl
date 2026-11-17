@@ -80,7 +80,7 @@ function NeuralNetworkParameters(; model_size = :xlarge, T = Float64)
         joinpath(DATA_PATH, "scaled_input_distribution.npz")
     )
     network_parameters = NPZ.npzread(
-        joinpath(DATA_PATH, "nn-" * string(model_size) * ".npz")
+        joinpath(DATA_PATH, string("nn-", model_size, ".npz"))
     )
 
     weights = [
