@@ -45,9 +45,10 @@ end
 
 @testset "Workflow ($database)" for database in readdir(AIRFOILS_DIR; join = true)
     @testset "$filename" for filename in select_cases(readdir(database))
-        coords = coordinates_from_file(joinpath(database, filename))
-        py_kulfan = py_get_kulfan_from_coordinates(py_array(coords); normalize_coordinates = false)
-        jl_kulfan = NNFoil.KulfanParameters(coords)
+        # Normalize the original coordinates independently in each pipeline.
+        coords = readdlm(joinpath(database, filename))
+        py_kulfan = py_get_kulfan_from_coordinates(py_array(coords); normalize_coordinates = true)
+        jl_kulfan = NNFoil.KulfanParameters(NNFoil.normalize_coordinates!(copy(coords)))
 
         # NOTE: for engineering purposes, an absolute difference of 1e-3 seems acceptable.
         # Reducing it to 1e-6 results in a few errors, but still acceptable.

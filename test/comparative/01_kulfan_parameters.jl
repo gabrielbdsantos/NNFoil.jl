@@ -1,3 +1,16 @@
+@testset "Normalization ($database)" for database in readdir(AIRFOILS_DIR; join = true)
+    @testset "$filename" for filename in select_cases(readdir(database))
+        coords = readdlm(joinpath(database, filename))
+        py_ans = pyconvert(
+            Matrix{Float64},
+            Airfoil(coordinates = py_array(coords)).normalize().coordinates
+        )
+        jl_ans = NNFoil.normalize_coordinates!(copy(coords))
+
+        @test isapprox(py_ans, jl_ans; atol = 1.0e-14)
+    end
+end
+
 @testset "Kulfan Parameters ($database)" for database in readdir(AIRFOILS_DIR; join = true)
     @testset "$filename" for filename in select_cases(readdir(database))
         coords = coordinates_from_file(joinpath(database, filename))

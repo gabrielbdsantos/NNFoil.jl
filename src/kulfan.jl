@@ -152,30 +152,51 @@ end
 """
     normalize_coordinates!(coordinates)
 
-Normalize input coordinates in place using chord-based scaling.
+Normalize input coordinates in place to a unit chord aligned with the x-axis.
+Return the modified input matrix.
 
 # Arguments
 
 - `coordinates::AbstractMatrix`: Matrix of airfoil coordinates with columns
-  representing the x and y values.
-
-# Returns
-
-- `AbstractMatrix`: The normalized `coordinates` matrix.
+  `[x, y]`, in Selig ordering.
 
 # Notes
 
-- The implementation shifts x by `minimum(x)` and divides the full coordinate
-  matrix by `maximum(x)`, so y is scaled by the same chord length.
-
-!!! warning
-    The current normalization is a temporary workaround and may be revised in
-    future versions of NNFoil so that it more closely matches how NeuralFoil
-    normalizes coordinates.
+- Matches AeroSandbox's airfoil normalization: the trailing edge is the
+  midpoint of the first and last coordinates, and the geometric leading edge is
+  the input point farthest from that midpoint.
+- Places the geometric leading edge at `(0, 0)` and the trailing-edge midpoint
+  at `(1, 0)`. Point order and count are preserved.
+- The geometric leading edge may differ from the true leading edge; for
+  example, on cambered NACA profiles.
 """
 function normalize_coordinates!(coordinates)
-    coordinates[:, 1] .-= minimum(@view coordinates[:, 1])
-    return coordinates ./= maximum(@view coordinates[:, 1])
+    x = @view coordinates[:, 1]
+    y = @view coordinates[:, 2]
+
+    x_te = (x[1] + x[end]) / 2
+    y_te = (y[1] + y[end]) / 2
+
+    distance_squared = @. (x - x_te)^2 + (y - y_te)^2
+    chord_squared, le_index = findmax(distance_squared)
+
+    x_le, y_le = x[le_index], y[le_index]
+
+    x .-= x_le
+    y .-= y_le
+    coordinates .*= inv(sqrt(chord_squared))
+
+    x_te = (x[1] + x[end]) / 2
+    y_te = (y[1] + y[end]) / 2
+    sine, cosine = sincos(-atan(y_te, x_te))
+
+    for i in axes(coordinates, 1)
+        xi, yi = x[i], y[i]
+        x[i] = cosine * xi - sine * yi
+        y[i] = sine * xi + cosine * yi
+    end
+
+    return coordinates
 end
 
 """
