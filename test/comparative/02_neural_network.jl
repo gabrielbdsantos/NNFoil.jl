@@ -48,7 +48,7 @@ end
         # Normalize the original coordinates independently in each pipeline.
         coords = readdlm(joinpath(database, filename))
         py_kulfan = py_get_kulfan_from_coordinates(py_array(coords); normalize_coordinates = true)
-        jl_kulfan = NNFoil.KulfanParameters(NNFoil.normalize_coordinates!(copy(coords)))
+        jl_kulfan = NNFoil.KulfanParameters(NNFoil.normalize_coordinates(coords))
 
         # NOTE: for engineering purposes, an absolute difference of 1e-3 seems acceptable.
         # Reducing it to 1e-6 results in a few errors, but still acceptable.

@@ -102,7 +102,7 @@ leading edge, and returning along the lower surface.
 
 # Notes
 
-- Coordinates are used as provided. Call [`normalize_coordinates!`](@ref) first
+- Coordinates are used as provided. Call [`normalize_coordinates`](@ref) first
   when chord coordinates are not normalized.
 - The number of Bernstein weights per surface is currently fixed internally at
   eight, following the implementation used in
@@ -153,7 +153,7 @@ end
     normalize_coordinates!(coordinates)
 
 Normalize input coordinates in place to a unit chord aligned with the x-axis.
-Return the modified input matrix.
+Return `nothing`.
 
 # Arguments
 
@@ -196,8 +196,21 @@ function normalize_coordinates!(coordinates)
         y[i] = sine * xi + cosine * yi
     end
 
-    return coordinates
+    return nothing
 end
+
+"""
+    normalize_coordinates(coordinates)
+
+Variant of [`normalize_coordinates!`](@ref) that returns a normalized copy of
+`coordinates`, leaving `coordinates` itself unmodified.
+"""
+function normalize_coordinates(coordinates)
+    c = copy(coordinates)
+    normalize_coordinates!(c)
+    return c
+end
+
 
 """
     split_upper_lower_surfaces(coordinates)

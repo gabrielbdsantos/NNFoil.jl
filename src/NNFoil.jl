@@ -19,6 +19,6 @@ include("neural_network.jl")
 export
     KulfanParameters, NeuralNetworkParameters, NeuralNetworkOutput,
     NeuralNetworkCache, build_features, update_features!,
-    evaluate, evaluate!, normalize_coordinates!
+    evaluate, evaluate!, normalize_coordinates, normalize_coordinates!
 
 end

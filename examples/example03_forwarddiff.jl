@@ -38,7 +38,7 @@ coordinates = readdlm(
     )
 )
 
-kulfan_parameters = KulfanParameters(normalize_coordinates!(coordinates))
+kulfan_parameters = KulfanParameters(normalize_coordinates(coordinates))
 network_parameters = NeuralNetworkParameters(; model_size = :xsmall, T = Float64)
 
 alpha = [-2.0, 3.0, 7.0]

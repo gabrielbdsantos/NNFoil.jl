@@ -56,7 +56,7 @@ coordinates = readdlm(
         )
     )
 )
-kulfan_parameters = KulfanParameters(normalize_coordinates!(coordinates))
+kulfan_parameters = KulfanParameters(normalize_coordinates(coordinates))
 network_parameters = NeuralNetworkParameters(; model_size = :xlarge)
 alpha = -180:180
 Reynolds = 5.0e6
@@ -77,7 +77,7 @@ coordinates = readdlm(
         )
     )
 )
-kulfan_parameters = KulfanParameters(normalize_coordinates!(coordinates))
+kulfan_parameters = KulfanParameters(normalize_coordinates(coordinates))
 network_parameters = NeuralNetworkParameters(; model_size = :xlarge)
 alpha = -180:180
 Reynolds = 5.0e6

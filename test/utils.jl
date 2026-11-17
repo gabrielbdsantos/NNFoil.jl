@@ -23,4 +23,8 @@ for T in (KulfanParameters, NeuralNetworkOutput)
     )
 end
 
-coordinates_from_file(filepath) = normalize_coordinates!(readdlm(filepath))
+function coordinates_from_file(filepath)
+    coordinates = readdlm(filepath)
+    normalize_coordinates!(coordinates)
+    return coordinates
+end

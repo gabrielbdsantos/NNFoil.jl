@@ -5,7 +5,7 @@ const UNIT_COORDINATES_RAW = readdlm(
         )
     )
 )
-const UNIT_COORDINATES = NNFoil.normalize_coordinates!(copy(UNIT_COORDINATES_RAW))
+const UNIT_COORDINATES = NNFoil.normalize_coordinates(UNIT_COORDINATES_RAW)
 
 const UNIT_KULFAN = NNFoil.KulfanParameters(copy(UNIT_COORDINATES))
 const UNIT_SYNTH_KULFAN = NNFoil.KulfanParameters(

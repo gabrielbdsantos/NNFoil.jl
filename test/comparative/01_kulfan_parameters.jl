@@ -5,7 +5,7 @@
             Matrix{Float64},
             Airfoil(coordinates = py_array(coords)).normalize().coordinates
         )
-        jl_ans = NNFoil.normalize_coordinates!(copy(coords))
+        jl_ans = NNFoil.normalize_coordinates(coords)
 
         @test isapprox(py_ans, jl_ans; atol = 1.0e-14)
     end
