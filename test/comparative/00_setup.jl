@@ -15,26 +15,13 @@ end
 
 using PythonCall
 
-macro wrap_pyfunction(mod, fname, jname)
-    return quote
-        const pymod = pyimport($mod)
-
-        # Define functions with the same names as the input symbols
-        $(
-            :(
-                function $(esc(jname))(args...; kwargs...)
-                    pyf = @pyconst pymod.$(fname)
-                    return pyf(args...; kwargs...)
-                end
-            )
-        )
-    end
-end
-
-@wrap_pyfunction "numpy" array py_array
-@wrap_pyfunction "numpy" genfromtxt py_genfromtxt
-@wrap_pyfunction "aerosandbox.geometry.airfoil.airfoil_families" get_kulfan_parameters py_get_kulfan_parameters
-@wrap_pyfunction "neuralfoil" get_aero_from_kulfan_parameters py_get_aero_from_kulfan_parameters
+const py_array = pyimport("numpy").array
+const py_genfromtxt = pyimport("numpy").genfromtxt
+const py_get_kulfan_parameters =
+    pyimport("aerosandbox.geometry.airfoil.airfoil_families").get_kulfan_parameters
+const py_get_aero_from_kulfan_parameters =
+    pyimport("neuralfoil").get_aero_from_kulfan_parameters
+const Airfoil = pyimport("aerosandbox.geometry.airfoil").Airfoil
 
 function py_get_kulfan_from_coordinates(coordinates; normalize_coordinates = false)
     return py_get_kulfan_parameters(coordinates, normalize_coordinates = normalize_coordinates)
